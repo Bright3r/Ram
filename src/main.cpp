@@ -1,9 +1,12 @@
-#define MAXN 64
+#define MAXN (17*3)
 #include "nauty2_9_1/nauty.h"
 
 #include <cstdio>
 #include <array>
 #include <cassert>
+#include <memory>
+
+using NautyGraph = graph;
 
 namespace Ram {
 
@@ -19,21 +22,23 @@ consteval int log2_ceil(int x)
 }
 
 template <size_t NumVertices, size_t NumColors>
-class EdgeColoredGraph 
+struct EdgeColoredGraph 
 {
 	static constexpr int EncodingSize = log2_ceil(NumColors);
-	static constexpr int NumEncodingVertices = EncodingSize * NumVertices;
-	static constexpr int GraphSize = NumEncodingVertices;
 
-public:
-	std::array<std::array<int, GraphSize>, GraphSize> graph {};
+	// Corresponds to n in nauty
+	static constexpr int GraphSize = NumVertices * EncodingSize;
+	// Corresponds to m in nauty
+	static constexpr int VertexWords = SETWORDSNEEDED(GraphSize);
+
+	std::array<std::array<bool, GraphSize>, GraphSize> m_graph { false };
 
 	EdgeColoredGraph() noexcept
 	{
-		// Create a clique between vertical threads of color encoding vertices
+		// Create a path between vertical threads of color encoding vertices
 		for (int e = 0; e < NumVertices; ++e)
 		{
-			setTheadClique(e);
+			initThreads(e);
 		}
 	}
 
@@ -46,11 +51,27 @@ public:
 		setEncodedEdge(i, j, color);
 	}
 
+	std::unique_ptr<NautyGraph> nautify() const noexcept
+	{
+		auto g = std::make_unique<NautyGraph>(GraphSize*VertexWords);
+		EMPTYGRAPH(g.get(), VertexWords, GraphSize);
+
+		for (int i = 0; i < GraphSize; ++i)
+		{
+			for (int j = i+1; j < GraphSize; ++j)
+			{
+				if (m_graph[i][j]) 
+					ADDONEEDGE(g.get(), i, j, VertexWords);
+			}
+		}
+		return g;
+	}
+
 private:
-	void setTheadClique(int e) noexcept
+	void initThreads(int e) noexcept
 	{
 		int e_base = e * EncodingSize;
-		for (int c1 = 0; c1 < EncodingSize; ++c1)
+		for (int c1 = 0; c1 < EncodingSize-1; ++c1)
 		{
 			int e1 = e_base + c1;
 			for (int c2 = 0; c2 < EncodingSize; ++c2)
@@ -58,7 +79,7 @@ private:
 				if (c1 == c2) continue;
 
 				int e2 = e_base + c2;
-				graph[e1][e2] = 1;
+				m_graph[e1][e2] = true;
 			}
 		}
 	}
@@ -73,8 +94,8 @@ private:
 			int j_encoded = j_base + color_offset;
 
 			int color_bit = color & 0x1;
-			graph[i_encoded][j_encoded] = color_bit;
-			graph[j_encoded][i_encoded] = color_bit;
+			m_graph[i_encoded][j_encoded] = color_bit;
+			m_graph[j_encoded][i_encoded] = color_bit;
 			color >>= 1;
 		}
 	}
@@ -82,15 +103,42 @@ private:
 
 };	// end of namespace
 
+
+// Setup colors
+constexpr int Uncolored = 0;
+constexpr int Red = 1;
+constexpr int Blue = 2;
+constexpr int Green = 3;
+constexpr int Purple = 4;
+
 int main(int argc, char** argv)
 {
-	int n = 62;
-	int m = SETWORDSNEEDED(n);
+	// Test graph
+	constexpr int NumVertices = 2;
+	constexpr int NumColors = 4;
+	using MyGraph = Ram::EdgeColoredGraph<NumVertices, NumColors>;
+	MyGraph g;
+	g.setEdge(0, 1, Red);
+
+	static constexpr int n = MyGraph::GraphSize;
+	static constexpr int m = MyGraph::VertexWords;
 	nauty_check(WORDSIZE, m, n, NAUTYVERSIONID);
+	std::printf("N=%d, M=%d\n", n, m);
 
-	std::printf("N=%d, M=%d", n, m);
+	// Setup dense nauty
+	auto nauty_g = g.nautify();
+	int lab[n], ptn[n], orbits[n];
+	DEFAULTOPTIONS_GRAPH(options);
+	statsblk stats;
 
-	Ram::EdgeColoredGraph<62, 4> g;
+	for (int i = 0; i < n; ++i)
+	{
+		lab[i] = i;
+		ptn[i] = (i+1 < n) ? 1 : 0;
+	}
+
+	densenauty(nauty_g.get(), lab, ptn, orbits, &options, &stats, m, n, NULL);
+	std::printf("Automorphism group size: %lu\n", (unsigned long) stats.grpsize1);
 
 	return 0;
 }
