@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/chase/dev/ramsey/nauty/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

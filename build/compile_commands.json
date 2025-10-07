@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/chase/dev/ramsey/nauty/build",
+  "command": "/usr/sbin/c++ -I/home/chase/dev/ramsey/nauty/src -I/home/chase/dev/ramsey/nauty/vendor -g -std=gnu++20 -o CMakeFiles/main.dir/src/main.cpp.o -c /home/chase/dev/ramsey/nauty/src/main.cpp",
+  "file": "/home/chase/dev/ramsey/nauty/src/main.cpp",
+  "output": "/home/chase/dev/ramsey/nauty/build/CMakeFiles/main.dir/src/main.cpp.o"
+}
+]

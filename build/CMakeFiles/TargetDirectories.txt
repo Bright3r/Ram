@@ -1,0 +1,3 @@
+/home/chase/dev/ramsey/nauty/build/CMakeFiles/main.dir
+/home/chase/dev/ramsey/nauty/build/CMakeFiles/edit_cache.dir
+/home/chase/dev/ramsey/nauty/build/CMakeFiles/rebuild_cache.dir
