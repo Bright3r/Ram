@@ -1,17 +1,20 @@
-#include <filesystem>
-#define MAXN (17*3)
-#include "nauty2_9_1/nauty.h"
-
+#include <chrono>
 #include <cstdio>
 #include <array>
+#include <ctime>
 #include <vector>
 #include <cassert>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <filesystem>
+#include <unordered_set>
 
+#include "EdgeColoredUndirectedGraph.h"
 
-// Setup colors
+using namespace Ram;
+
+// Colors
 constexpr int Uncolored = 0;
 constexpr int Red = 1;
 constexpr int Blue = 2;
@@ -19,181 +22,12 @@ constexpr int Green = 3;
 constexpr int Purple = 4;
 
 
-namespace Ram {
-
-// Calculates the number of bits needed to represent 0-x in binary
-// Ex: x=4 requires 3 bits (range 0-4 --> binary range of 000-100)
-consteval int bits_needed_for_max_value(int x)
-{
-	int i { 0 };
-	while (x > 0)
-	{
-		++i;
-		x >>= 1;
-	}
-
-	return i;
-}
-
-template <size_t NumVertices, size_t MaxColor>
-struct EdgeColoredUndirectedGraph 
-{
-	using InternalGraph = EdgeColoredUndirectedGraph<NumVertices, MaxColor>;
-
-	// Corresponds to number of bits needed to represent the number of colors in binary
-	// Details found in edge-colored encoding mechanism of Nauty manual
-	static constexpr int EncodingSize = bits_needed_for_max_value(MaxColor);
-
-	// Corresponds to n in nauty
-	static constexpr int GraphSize = NumVertices * EncodingSize;
-
-	// Corresponds to m in nauty
-	static constexpr int VertexWords = SETWORDSNEEDED(GraphSize);
-
-	// Type to be used when interacting with nauty
-	using NautyGraph = std::array<setword, GraphSize*VertexWords>;
-
-	std::array<std::array<bool, GraphSize>, GraphSize> m_graph { false };
-
-	EdgeColoredUndirectedGraph() noexcept
-	{
-		// Create a path between vertical threads of color encoding vertices
-		for (int e = 0; e < NumVertices; ++e)
-		{
-			initThreads(e);
-		}
-	}
-
-	void setEdge(int i, int j, int color) noexcept
-	{
-		assert(i >= 0 && i < NumVertices && j >= 0 && j < NumVertices 
-			&& "Invalid bounds on EdgeColoredGraph::setEdge()"
-		);
-
-		setEncodedEdge(i, j, color);
-	}
-
-	int getEdge(int i, int j) noexcept
-	{
-		assert(i >= 0 && i < NumVertices && j >= 0 && j < NumVertices 
-			&& "Invalid bounds on EdgeColoredGraph::getEdge()"
-		);
-
-		return getEncodedEdge(i, j);
-	}
-
-	bool isTriangleFree() noexcept
-	{
-		for (int i = 0; i < NumVertices; ++i)
-		{
-			for (int j = i+1; j < NumVertices; ++j)
-			{
-				int c0 = getEncodedEdge(i, j);
-				if (c0 == 0) continue;
-
-				for (int k = j+1; k < NumVertices; ++k)
-				{
-					int c1 = getEncodedEdge(i, k);
-					if (c1 == 0) continue;
-
-					int c2 = getEncodedEdge(j, k);
-					if (c2 == 0) continue;
-
-					if (c0 == c1 && c0 == c2 && c1 == c2) 
-					{
-						std::printf(
-							"i=%d,j=%d,k=%d, c0=c1=c2 = %d\n", 
-							i, j, k, c0
-						);
-						return false;
-					}
-				}
-			}
-		}
-
-		return true;
-	}
-
-	std::vector<InternalGraph> getWeakIsomorphs() noexcept
-	{
-		std::vector<InternalGraph> res;
-
-		return res;
-	}
-
-	NautyGraph nautify() const noexcept
-	{
-		NautyGraph g {};
-		EMPTYGRAPH(g.data(), VertexWords, GraphSize);
-
-		for (int i = 0; i < GraphSize; ++i)
-		{
-			for (int j = i+1; j < GraphSize; ++j)
-			{
-				if (m_graph[i][j]) ADDONEEDGE(g.data(), i, j, VertexWords);
-			}
-		}
-
-		return g;
-	}
-
-private:
-	void initThreads(int e) noexcept
-	{
-		int e_base = e * EncodingSize;
-		for (int c1 = 0; c1 < EncodingSize; ++c1)
-		{
-			int e1 = e_base + c1;
-			for (int c2 = 0; c2 < EncodingSize; ++c2)
-			{
-				if (c1 == c2) continue;
-
-				int e2 = e_base + c2;
-				m_graph[e1][e2] = true;
-			}
-		}
-	}
-
-	void setEncodedEdge(int i, int j, int color) noexcept
-	{
-		int i_base = i * EncodingSize;
-		int j_base = j * EncodingSize;
-		for (int color_offset = 0; color_offset < EncodingSize; ++color_offset)
-		{
-			int i_encoded = i_base + color_offset;
-			int j_encoded = j_base + color_offset;
-
-			int color_bit = (color >> color_offset) & 1;
-			m_graph[i_encoded][j_encoded] = color_bit;
-			m_graph[j_encoded][i_encoded] = color_bit;
-		}
-	}
-
-	int getEncodedEdge(int i, int j) noexcept
-	{
-		int color = 0;
-
-		int i_base = i * EncodingSize;
-		int j_base = j * EncodingSize;
-		for (int color_offset = EncodingSize-1; color_offset >= 0; --color_offset)
-		{
-			int i_encoded = i_base + color_offset;
-			int j_encoded = j_base + color_offset;
-
-			int color_bit = m_graph[i_encoded][j_encoded] << color_offset;
-			color |= color_bit;
-		}
-
-		return color;
-	}
-};
-
 template <size_t NumVertices, size_t MaxColor>
 EdgeColoredUndirectedGraph<NumVertices, MaxColor> load_adj(std::filesystem::path filename) noexcept
 {
 	std::ifstream file(filename);
 	assert(file.is_open() && "Ram::load_adj() Failed: file not found.");
-	
+
 	// Parse File
 	std::string line;
 	std::string word;
@@ -206,14 +40,11 @@ EdgeColoredUndirectedGraph<NumVertices, MaxColor> load_adj(std::filesystem::path
 		std::stringstream ss(line);
 		int j = 0;
 		while (ss >> word) {
-			if (i == j)
+			if (j > i)
 			{
-				++j;
-				continue;
+				int color = std::stoi(word);
+				g.setEdge(i, j, color);
 			}
-
-			int color = std::stoi(word);
-			g.setEdge(i, j, color);
 			++j;
 		}
 		++i;
@@ -241,35 +72,39 @@ bool isIsomorphic(graph* cg1, graph* cg2, int n, int m) noexcept
 	return true;
 }
 
-void printCanong(graph* cg, int n, int m) noexcept
+std::string getCanonString(graph* cg, int n, int m) noexcept
 {
+	std::string canon;
 	for (int i = 0; i < n*m; ++i)
 	{
-		std::printf("%lul", cg[i]);
+		canon += std::to_string(cg[i]);
 	}
-	std::printf("\n");
+	return canon;
 }
 
-};	// end of namespace
+void printCanong(graph* cg, int n, int m) noexcept
+{
+	auto str = getCanonString(cg, n, m);
+	std::printf("%s\n", str.c_str());
+}
 
 
-int main(int argc, char** argv)
+void checkT1T2() noexcept
 {
 	// Make sure T1 and T2 are triangle-free
-	auto t1 = Ram::make_T1();
+	auto t1 = make_T1();
 	if (t1.isTriangleFree())
 	{
 		std::printf("No Triangles in T1.\n");
 	}
 	else std::printf("Triangle found in T1!\n");
 
-	auto t2 = Ram::make_T2();
+	auto t2 = make_T2();
 	if (t2.isTriangleFree())
 	{
 		std::printf("No Triangles in T2.\n");
 	}
 	else std::printf("Triangle found in T2!\n");
-
 
 
 	// Make sure T1 and T2 are non-isomorphic
@@ -297,7 +132,7 @@ int main(int argc, char** argv)
 	graph canong_t2[n*m];
 	densenauty(nauty_t2.data(), lab, ptn, orbits, &options, &stats, m, n, canong_t2);
 
-	if (Ram::isIsomorphic(canong_t1, canong_t2, n, m))
+	if (isIsomorphic(canong_t1, canong_t2, n, m))
 	{
 		std::printf("T1 and T2 are isomorphic.\n");
 	}
@@ -307,11 +142,239 @@ int main(int argc, char** argv)
 	}
 
 	std::printf("\nCanonical Labeling of T1: \n");
-	Ram::printCanong(canong_t1, n, m);
+	printCanong(canong_t1, n, m);
 
 	std::printf("\nCanonical Labeling of T2: \n");
-	Ram::printCanong(canong_t2, n, m);
+	printCanong(canong_t2, n, m);
 
+
+	// Get all weak isomorphs of { T1, T2 }
+	auto weak_isomorphs = t1.getWeakIsomorphs();
+	auto t2_weak_isomorphs = t2.getWeakIsomorphs();
+	weak_isomorphs.insert(
+		weak_isomorphs.end(), t2_weak_isomorphs.begin(), t2_weak_isomorphs.end()
+	);
+
+	// Get all canonical labelings of weak isomorphs of { T1, T2 }
+	std::unordered_set<std::string> weak_isomorph_canons;
+	for (const auto& g : weak_isomorphs)
+	{
+		auto nauty_g = g.nautify();
+		graph canong_g[n*m];
+		densenauty(nauty_g.data(), lab, ptn, orbits, &options, &stats, m, n, canong_g);
+
+		weak_isomorph_canons.insert(getCanonString(canong_g, n, m));
+	}
+
+	std::printf(
+		"\nNumber of weak isomorphs: %d\n", 
+		static_cast<int>(weak_isomorph_canons.size())
+	);
+
+	std::printf("T1:\n");
+	t1.print();
+
+	std::printf("\nT2:\n");
+	t2.print();
+}
+
+void prop1() noexcept
+{
+	// Good k16
+	auto t1 = make_T1();
+
+	// Copy good k16 to partial k17
+	Ram::EdgeColoredUndirectedGraph<17, 4> baseg;
+	for (int i = 0; i < 16; ++i)
+	{
+		for (int j = i+1; j < 16; ++j)
+		{
+			int c = t1.getEdge(i, j);
+			assert(c != 0 && "T1 must be complete");
+			baseg.setEdge(i, j, c);
+		}
+	}
+
+	std::vector<std::vector<int>> perms;
+	for (int s = 0; s < 16; ++s)
+	{
+		perms.push_back({ s });
+	}
+
+	std::unordered_set<std::string> canons;
+	for (auto& perm : perms)
+	{
+		Ram::EdgeColoredUndirectedGraph<17, 4> marked_g = baseg;
+
+		// Mark subset with color4
+		for (int v : perm)
+		{
+			marked_g.setEdge(16, v, 4);
+		}
+
+		for (auto& g : marked_g.getWeakIsomorphs(3))
+		{
+			int n = g.GraphSize;
+			int m = g.VertexWords;
+
+			// Nauty return data
+			int lab[n], ptn[n], orbits[n];
+			statsblk stats;
+			for (int i = 0; i < n; ++i)
+			{
+				lab[i] = i;
+				ptn[i] = (i+1 < n) ? 1 : 0;
+			}
+
+			// Setup options
+			DEFAULTOPTIONS_GRAPH(options);
+			options.getcanon = true;
+
+			auto nauty_g = g.nautify();
+			graph canong[n*m];
+			densenauty(nauty_g.data(), lab, ptn, orbits, &options, &stats, m, n, canong);
+
+			canons.insert(getCanonString(canong, n, m));
+		}
+	}
+
+	std::printf(
+		"Non-isomorphic marked subsets of order: %d\n",
+		static_cast<int>(canons.size())
+	);
+}
+
+template <size_t num_vertices, size_t max_color>
+void backtrack(
+	std::unordered_set<std::string>& canons,
+	std::unordered_set<std::string>& seen,
+	Ram::EdgeColoredUndirectedGraph<num_vertices, max_color>& g,
+	int i = 0, int j = 0) noexcept
+{
+	// Full coloring with no triangles
+	if (!g.isPartial())
+	{
+		std::string canon_str = "";
+		for (auto& weak_g : g.getWeakIsomorphs())
+		{
+			// Nauty return data
+			statsblk stats;
+			int n = weak_g.GraphSize;
+			int m = weak_g.VertexWords;
+			int lab[n], ptn[n], orbits[n];
+			for (int i = 0; i < n; ++i)
+			{
+				lab[i] = i;
+				ptn[i] = (i+1 < n) ? 1 : 0;
+			}
+
+			// Setup options
+			DEFAULTOPTIONS_GRAPH(options);
+			options.getcanon = true;
+
+			// Canonicalize
+			auto nauty_g = weak_g.nautify();
+			graph canong[n*m];
+			densenauty(nauty_g.data(), lab, ptn, orbits, &options, &stats, m, n, canong);
+
+			std::string weak_canon_str = getCanonString(canong, n, m);
+			if (canon_str.empty() || weak_canon_str < canon_str)
+			{
+				canon_str = weak_canon_str;
+			}
+		}
+
+		canons.insert(canon_str);
+	}
+
+
+	if (i >= num_vertices - 1) return;
+
+	int next_i = i;
+	int next_j = j+1;
+	if (next_j >= num_vertices)
+	{
+		++next_i;
+		next_j = next_i + 1;
+	}
+
+	for (int c = 1; c <= max_color; ++c)
+	{
+		g.setEdge(i, j, c);
+
+		// Only backtrack on this edge color if a triangle is not created
+		bool created_tri = false;
+		for (int k = 0; k < num_vertices; ++k)
+		{
+			if (k == i || k == j) continue;
+			if (g.getEdge(i, k) == c && g.getEdge(j, k) == c)
+			{
+				created_tri = true;
+				break;
+			}
+		}
+		if (!created_tri) 
+		{
+			backtrack(canons, seen, g, next_i, next_j);
+		}
+
+		g.setEdge(i, j, 0);
+	}
+}
+
+template <size_t num_vertices>
+void verify() noexcept
+{
+	std::unordered_set<std::string> canons;
+	std::unordered_set<std::string> seen;
+	Ram::EdgeColoredUndirectedGraph<num_vertices, 3> g;
+	backtrack(canons, seen, g);
+
+	std::printf(
+		"Num Isomorphs for k%d: %d\n",
+		static_cast<int>(num_vertices),
+		static_cast<int>(canons.size())
+	);
+}
+
+template <size_t num_vertices>
+void run() noexcept
+{
+	auto start = std::chrono::high_resolution_clock::now();
+
+	verify<num_vertices>();
+
+	auto end = std::chrono::high_resolution_clock::now();
+	double time_ms = 
+		std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+	int ms = time_ms;
+
+	int sec = ms / 1000;
+	ms %= 1000;
+
+	int min = sec / 60;
+	sec %= 60;
+
+	std::printf(
+		"K%d computed in %dm %ds %dms\n",
+		static_cast<int>(num_vertices),
+		min,
+		sec,
+		ms
+	);
+}
+
+int main(int argc, char** argv)
+{
+	run<3>();
+	run<4>();
+	run<5>();
+	run<6>();
+	run<7>();
+	run<8>();
+	run<9>();
+	
 	return 0;
 }
 

@@ -1,0 +1,49 @@
+# Build artifacts
+*.o
+*.obj
+*.ko
+*.mod
+*.elf
+*.d
+*.ilk
+*.map
+*.exp
+*.lib
+*.a
+*.so
+*.dll
+*.exe
+*.out
+build/
+bin/
+obj/
+Debug/
+Release/
+vendor/
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# IDE-specific files (examples)
+.vscode/
+.idea/
+*.suo
+*.user
+*.ncb
+*.aps
+*.opensdf
+*.sdf
+*.ipch
+.cache/
+
+# Log files
+*.log
+
+# Temporary files
+*~
+#*#
+.#*
+*.swp
+.DS_Store
+Thumbs.db

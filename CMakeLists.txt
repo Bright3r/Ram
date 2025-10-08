@@ -11,10 +11,11 @@ add_executable(main
 target_include_directories(
 	main PRIVATE
 	${CMAKE_SOURCE_DIR}/src
-	${CMAKE_SOURCE_DIR}/vendor/
+	${CMAKE_SOURCE_DIR}/vendor/nauty2_9_1
 )
 
 target_link_libraries(
 	main PRIVATE
-	${CMAKE_SOURCE_DIR}/vendor/nauty2_9_1/nautyL1.a
+	${CMAKE_SOURCE_DIR}/vendor/nauty2_9_1/nauty.a
+	# ${CMAKE_SOURCE_DIR}/vendor/nauty2_9_1/nautyL1.a
 )
