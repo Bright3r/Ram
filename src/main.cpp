@@ -1,6 +1,5 @@
 #include <chrono>
 #include <cstdio>
-#include <array>
 #include <ctime>
 #include <vector>
 #include <cassert>
@@ -21,9 +20,16 @@ constexpr int Blue = 2;
 constexpr int Green = 3;
 constexpr int Purple = 4;
 
+// Type Aliases
+namespace Timing 
+{
+	using seconds = std::chrono::duration<double>;
+	using millis = std::chrono::duration<double, std::milli>;
+};
+
 
 template <size_t NumVertices, size_t MaxColor>
-EdgeColoredUndirectedGraph<NumVertices, MaxColor> load_adj(std::filesystem::path filename) noexcept
+EdgeColoredUndirectedGraph load_adj(std::filesystem::path filename) noexcept
 {
 	std::ifstream file(filename);
 	assert(file.is_open() && "Ram::load_adj() Failed: file not found.");
@@ -34,7 +40,7 @@ EdgeColoredUndirectedGraph<NumVertices, MaxColor> load_adj(std::filesystem::path
 
 	// Read File line by line to construct graph
 	int i = 0;
-	EdgeColoredUndirectedGraph<NumVertices, MaxColor> g;
+	EdgeColoredUndirectedGraph g(NumVertices, MaxColor);
 	while (std::getline(file, line)) {
 		// Read line for this vertex's edge colors
 		std::stringstream ss(line);
@@ -53,12 +59,12 @@ EdgeColoredUndirectedGraph<NumVertices, MaxColor> load_adj(std::filesystem::path
 	return g;
 }
 
-EdgeColoredUndirectedGraph<16, 3> make_T1() noexcept
+EdgeColoredUndirectedGraph make_T1() noexcept
 {
 	return load_adj<16, 3>("graphs/T1.adj");
 }
 
-EdgeColoredUndirectedGraph<16, 3> make_T2() noexcept
+EdgeColoredUndirectedGraph make_T2() noexcept
 {
 	return load_adj<16, 3>("graphs/T2.adj");
 }
@@ -89,291 +95,190 @@ void printCanong(graph* cg, int n, int m) noexcept
 }
 
 
-void checkT1T2() noexcept
+void writeGraphsToFile(
+	const std::filesystem::path& path,
+	const std::vector<Ram::EdgeColoredUndirectedGraph>& graphs)
 {
-	// Make sure T1 and T2 are triangle-free
-	auto t1 = make_T1();
-	if (t1.isTriangleFree())
+	auto start_time = std::chrono::high_resolution_clock::now();
+
+	std::ofstream out(path);
+	for (const auto& g : graphs)
 	{
-		std::printf("No Triangles in T1.\n");
+		out << g.to_string() << "\n";
 	}
-	else std::printf("Triangle found in T1!\n");
+	out.flush();
 
-	auto t2 = make_T2();
-	if (t2.isTriangleFree())
-	{
-		std::printf("No Triangles in T2.\n");
-	}
-	else std::printf("Triangle found in T2!\n");
-
-
-	// Make sure T1 and T2 are non-isomorphic
-	constexpr int n = t1.GraphSize;
-	constexpr int m = t1.VertexWords;
-
-	// Nauty return data
-	int lab[n], ptn[n], orbits[n];
-	statsblk stats;
-	for (int i = 0; i < n; ++i)
-	{
-		lab[i] = i;
-		ptn[i] = (i+1 < n) ? 1 : 0;
-	}
-
-	// Setup options
-	DEFAULTOPTIONS_GRAPH(options);
-	options.getcanon = true;
-
-	auto nauty_t1 = t1.nautify();
-	graph canong_t1[n*m];
-	densenauty(nauty_t1.data(), lab, ptn, orbits, &options, &stats, m, n, canong_t1);
-
-	auto nauty_t2 = t2.nautify();
-	graph canong_t2[n*m];
-	densenauty(nauty_t2.data(), lab, ptn, orbits, &options, &stats, m, n, canong_t2);
-
-	if (isIsomorphic(canong_t1, canong_t2, n, m))
-	{
-		std::printf("T1 and T2 are isomorphic.\n");
-	}
-	else
-	{
-		std::printf("T1 and T2 are non-isomorphic.\n");
-	}
-
-	std::printf("\nCanonical Labeling of T1: \n");
-	printCanong(canong_t1, n, m);
-
-	std::printf("\nCanonical Labeling of T2: \n");
-	printCanong(canong_t2, n, m);
-
-
-	// Get all weak isomorphs of { T1, T2 }
-	auto weak_isomorphs = t1.getWeakIsomorphs();
-	auto t2_weak_isomorphs = t2.getWeakIsomorphs();
-	weak_isomorphs.insert(
-		weak_isomorphs.end(), t2_weak_isomorphs.begin(), t2_weak_isomorphs.end()
-	);
-
-	// Get all canonical labelings of weak isomorphs of { T1, T2 }
-	std::unordered_set<std::string> weak_isomorph_canons;
-	for (const auto& g : weak_isomorphs)
-	{
-		auto nauty_g = g.nautify();
-		graph canong_g[n*m];
-		densenauty(nauty_g.data(), lab, ptn, orbits, &options, &stats, m, n, canong_g);
-
-		weak_isomorph_canons.insert(getCanonString(canong_g, n, m));
-	}
-
+	auto end_time = std::chrono::high_resolution_clock::now();
+	Timing::seconds time = end_time - start_time;
 	std::printf(
-		"\nNumber of weak isomorphs: %d\n", 
-		static_cast<int>(weak_isomorph_canons.size())
+		"Wrote to %s in %.2f seconds\n",
+		path.c_str(),
+		time.count()
 	);
-
-	std::printf("T1:\n");
-	t1.print();
-
-	std::printf("\nT2:\n");
-	t2.print();
+	std::printf("\n");
 }
 
-void prop1() noexcept
+std::vector<std::vector<int>> generateAllColorings(int e, int k)
 {
-	// Good k16
-	auto t1 = make_T1();
+	auto start_time = std::chrono::high_resolution_clock::now();
 
-	// Copy good k16 to partial k17
-	Ram::EdgeColoredUndirectedGraph<17, 4> baseg;
-	for (int i = 0; i < 16; ++i)
+	std::vector<std::vector<int>> res;
+	std::vector<int> coloring(e, 1);
+	while (true)
 	{
-		for (int j = i+1; j < 16; ++j)
+		res.push_back(coloring);
+
+		int pos = e-1;
+		while (pos >= 0)
 		{
-			int c = t1.getEdge(i, j);
-			assert(c != 0 && "T1 must be complete");
-			baseg.setEdge(i, j, c);
-		}
-	}
-
-	std::vector<std::vector<int>> perms;
-	for (int s = 0; s < 16; ++s)
-	{
-		perms.push_back({ s });
-	}
-
-	std::unordered_set<std::string> canons;
-	for (auto& perm : perms)
-	{
-		Ram::EdgeColoredUndirectedGraph<17, 4> marked_g = baseg;
-
-		// Mark subset with color4
-		for (int v : perm)
-		{
-			marked_g.setEdge(16, v, 4);
+			coloring[pos]++;
+			if (coloring[pos] <= k) break;
+			
+			coloring[pos] = 1;
+			--pos;
 		}
 
-		for (auto& g : marked_g.getWeakIsomorphs(3))
-		{
-			int n = g.GraphSize;
-			int m = g.VertexWords;
-
-			// Nauty return data
-			int lab[n], ptn[n], orbits[n];
-			statsblk stats;
-			for (int i = 0; i < n; ++i)
-			{
-				lab[i] = i;
-				ptn[i] = (i+1 < n) ? 1 : 0;
-			}
-
-			// Setup options
-			DEFAULTOPTIONS_GRAPH(options);
-			options.getcanon = true;
-
-			auto nauty_g = g.nautify();
-			graph canong[n*m];
-			densenauty(nauty_g.data(), lab, ptn, orbits, &options, &stats, m, n, canong);
-
-			canons.insert(getCanonString(canong, n, m));
-		}
+		if (pos < 0) break;
 	}
 
+	auto end_time = std::chrono::high_resolution_clock::now();
+	Timing::seconds time = end_time - start_time;
 	std::printf(
-		"Non-isomorphic marked subsets of order: %d\n",
-		static_cast<int>(canons.size())
+		"Generated colorings for %d edges, %d colors in %.2f seconds.\n",
+		e,
+		k,
+		time.count()
 	);
+
+	return res;
 }
 
-template <size_t num_vertices, size_t max_color>
-void backtrack(
-	std::unordered_set<std::string>& canons,
-	std::unordered_set<std::string>& seen,
-	Ram::EdgeColoredUndirectedGraph<num_vertices, max_color>& g,
-	int i = 0, int j = 0) noexcept
+std::string canonize(const Ram::EdgeColoredUndirectedGraph& g) noexcept
 {
-	// Full coloring with no triangles
-	if (!g.isPartial())
+	// Canonicalize graph
+	std::string canon_str = "";
+	for (auto& weak_g : g.getColorPermutations())
 	{
-		std::string canon_str = "";
-		for (auto& weak_g : g.getWeakIsomorphs())
+		// Nauty return data
+		statsblk stats;
+		int n = weak_g.numEncodedVertices();
+		int m = weak_g.numWordsPerVertex();
+		int lab[n], ptn[n], orbits[n];
+		for (int i = 0; i < n; ++i)
 		{
-			// Nauty return data
-			statsblk stats;
-			int n = weak_g.GraphSize;
-			int m = weak_g.VertexWords;
-			int lab[n], ptn[n], orbits[n];
-			for (int i = 0; i < n; ++i)
+			lab[i] = i;
+			ptn[i] = (i+1 < n) ? 1 : 0;
+		}
+
+		// Setup options
+		DEFAULTOPTIONS_GRAPH(options);
+		options.getcanon = true;
+
+		// Dense Nauty
+		auto nauty_g = weak_g.nautify();
+		graph canong[n*m];
+		densenauty(nauty_g.data(), lab, ptn, orbits, &options, &stats, m, n, canong);
+
+		// Only keep lexicographically smallest canonization
+		std::string weak_canon_str = getCanonString(canong, n, m);
+		if (canon_str.empty() || weak_canon_str < canon_str)
+		{
+			canon_str = weak_canon_str;
+		}
+	}
+
+	return canon_str;
+}
+
+void augment() noexcept
+{
+	// Get all k2's
+	std::vector<Ram::EdgeColoredUndirectedGraph> graphs;
+	Ram::EdgeColoredUndirectedGraph base(2, 3);
+	for (int c = 1; c <= 3; ++c)
+	{
+		auto g = base;
+		g.setEdge(0, 1, c);
+		graphs.push_back(g);
+	}
+
+	// Iterate through k3-k16
+	for (int v = 3; v <= 16; ++v)
+	{
+		auto start_time = std::chrono::high_resolution_clock::now();
+
+		int num_new_edges = v - 1;
+		auto colorings = generateAllColorings(num_new_edges, 3);
+
+		// Go through all previous canonical representatives
+		std::vector<Ram::EdgeColoredUndirectedGraph> new_graphs;
+		std::unordered_set<std::string> new_canons;
+		for (auto& representative : graphs)
+		{
+			auto rep_plus_one = representative;
+			rep_plus_one.addVertex();
+
+			// Go through all new edge colors for new vertex
+			for (const auto& coloring : colorings)
 			{
-				lab[i] = i;
-				ptn[i] = (i+1 < n) ? 1 : 0;
-			}
+				auto g = rep_plus_one;
+				int new_vertex = v-1;
+				for (int i = 0; i < new_vertex; ++i)
+				{
+					g.setEdge(new_vertex, i, coloring[i]);
+				}
 
-			// Setup options
-			DEFAULTOPTIONS_GRAPH(options);
-			options.getcanon = true;
+				// Check if triangle was added
+				bool has_tri = false;
+				for (int i = 0; i < new_vertex; ++i)
+				{
+					for (int j = i+1; j < new_vertex; ++j)
+					{
+						auto e0 = g.getEdge(new_vertex, i);
+						auto e1 = g.getEdge(new_vertex, j);
+						auto e2 = g.getEdge(i, j);
+						if ((e0 == e1) && (e0 == e2) && (e1 == e2)) 
+						{
+							has_tri = true;
+							break;
+						}
+					}
 
-			// Canonicalize
-			auto nauty_g = weak_g.nautify();
-			graph canong[n*m];
-			densenauty(nauty_g.data(), lab, ptn, orbits, &options, &stats, m, n, canong);
+					if (has_tri) break;
+				}
+				if (has_tri) continue;
 
-			std::string weak_canon_str = getCanonString(canong, n, m);
-			if (canon_str.empty() || weak_canon_str < canon_str)
-			{
-				canon_str = weak_canon_str;
+				// Track distinct colorings
+				auto canon_str = canonize(g);
+				if (!new_canons.contains(canon_str))
+				{
+					new_canons.insert(canon_str);
+					new_graphs.push_back(g);
+				}
 			}
 		}
 
-		canons.insert(canon_str);
+		auto end_time = std::chrono::high_resolution_clock::now();
+		Timing::seconds time = end_time - start_time;
+
+		std::printf(
+			"Found %d distinct colorings for k%d in %.2f seconds.\n",
+			static_cast<int>(new_canons.size()),
+			v,
+			time.count()
+		);
+
+		graphs = new_graphs;
+
+		std::stringstream file_path; 
+		file_path << "graphs/k" << v << ".adj";
+		writeGraphsToFile(file_path.str(), graphs);
 	}
-
-
-	if (i >= num_vertices - 1) return;
-
-	int next_i = i;
-	int next_j = j+1;
-	if (next_j >= num_vertices)
-	{
-		++next_i;
-		next_j = next_i + 1;
-	}
-
-	for (int c = 1; c <= max_color; ++c)
-	{
-		g.setEdge(i, j, c);
-
-		// Only backtrack on this edge color if a triangle is not created
-		bool created_tri = false;
-		for (int k = 0; k < num_vertices; ++k)
-		{
-			if (k == i || k == j) continue;
-			if (g.getEdge(i, k) == c && g.getEdge(j, k) == c)
-			{
-				created_tri = true;
-				break;
-			}
-		}
-		if (!created_tri) 
-		{
-			backtrack(canons, seen, g, next_i, next_j);
-		}
-
-		g.setEdge(i, j, 0);
-	}
-}
-
-template <size_t num_vertices>
-void verify() noexcept
-{
-	std::unordered_set<std::string> canons;
-	std::unordered_set<std::string> seen;
-	Ram::EdgeColoredUndirectedGraph<num_vertices, 3> g;
-	backtrack(canons, seen, g);
-
-	std::printf(
-		"Num Isomorphs for k%d: %d\n",
-		static_cast<int>(num_vertices),
-		static_cast<int>(canons.size())
-	);
-}
-
-template <size_t num_vertices>
-void run() noexcept
-{
-	auto start = std::chrono::high_resolution_clock::now();
-
-	verify<num_vertices>();
-
-	auto end = std::chrono::high_resolution_clock::now();
-	double time_ms = 
-		std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-	int ms = time_ms;
-
-	int sec = ms / 1000;
-	ms %= 1000;
-
-	int min = sec / 60;
-	sec %= 60;
-
-	std::printf(
-		"K%d computed in %dm %ds %dms\n",
-		static_cast<int>(num_vertices),
-		min,
-		sec,
-		ms
-	);
 }
 
 int main(int argc, char** argv)
 {
-	run<3>();
-	run<4>();
-	run<5>();
-	run<6>();
-	run<7>();
-	run<8>();
-	run<9>();
+	augment();
 	
 	return 0;
 }
