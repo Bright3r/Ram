@@ -190,6 +190,39 @@ std::string canonize(const Ram::EdgeColoredUndirectedGraph& g) noexcept
 	return canon_str;
 }
 
+struct ColoringGenerator
+{
+	int num_edges;
+	int num_colors;
+	bool is_done = false;
+
+	std::vector<int> coloring;
+
+	ColoringGenerator(int e, int k)
+		: num_edges(e)
+		, num_colors(k)
+		, coloring(e, 1)
+	{ }
+
+	bool next(std::vector<int>& out)
+	{
+		if (is_done) return false;
+		out = coloring;
+
+		int pos = num_edges-1;
+		while (pos >= 0)
+		{
+			++coloring[pos];
+			if (coloring[pos] <= num_colors) break;
+			coloring[pos] = 1;
+			--pos;
+		}
+
+		if (pos < 0) is_done = true;
+		return true;
+	}
+};
+
 void augment() noexcept
 {
 	// Get all k2's
@@ -208,7 +241,7 @@ void augment() noexcept
 		auto start_time = std::chrono::high_resolution_clock::now();
 
 		int num_new_edges = v - 1;
-		auto colorings = generateAllColorings(num_new_edges, 3);
+		// auto colorings = generateAllColorings(num_new_edges, 3);
 
 		// Go through all previous canonical representatives
 		std::vector<Ram::EdgeColoredUndirectedGraph> new_graphs;
@@ -219,7 +252,10 @@ void augment() noexcept
 			rep_plus_one.addVertex();
 
 			// Go through all new edge colors for new vertex
-			for (const auto& coloring : colorings)
+			// for (const auto& coloring : colorings)
+			ColoringGenerator gen(num_new_edges, 3);
+			std::vector<int> coloring;
+			while (gen.next(coloring))
 			{
 				auto g = rep_plus_one;
 				int new_vertex = v-1;
