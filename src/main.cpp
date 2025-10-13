@@ -27,6 +27,40 @@ namespace Timing
 	using millis = std::chrono::duration<double, std::milli>;
 };
 
+struct ColoringGenerator
+{
+	int num_edges;
+	int num_colors;
+	bool is_done = false;
+
+	std::vector<int> coloring;
+
+	ColoringGenerator(int e, int k)
+		: num_edges(e)
+		, num_colors(k)
+		, coloring(e, 1)
+	{ }
+
+	bool next(std::vector<int>& out)
+	{
+		if (is_done) return false;
+		out = coloring;
+
+		int pos = num_edges-1;
+		while (pos >= 0)
+		{
+			++coloring[pos];
+			if (coloring[pos] <= num_colors) break;
+			coloring[pos] = 1;
+			--pos;
+		}
+
+		if (pos < 0) is_done = true;
+		return true;
+	}
+};
+
+
 
 template <size_t NumVertices, size_t MaxColor>
 EdgeColoredUndirectedGraph load_adj(std::filesystem::path filename) noexcept
@@ -190,38 +224,59 @@ std::string canonize(const Ram::EdgeColoredUndirectedGraph& g) noexcept
 	return canon_str;
 }
 
-struct ColoringGenerator
+void processRepresentative(
+	const Ram::EdgeColoredUndirectedGraph& representative,
+	int num_new_edges, 
+	int v,
+	std::vector<Ram::EdgeColoredUndirectedGraph>& new_graphs,
+	std::unordered_set<std::string>& new_canons) noexcept
 {
-	int num_edges;
-	int num_colors;
-	bool is_done = false;
+	// Add vertex to rep
+	auto rep_plus_one = representative;
+	rep_plus_one.addVertex();
 
+	// Go through all new edge colors for new vertex
+	ColoringGenerator gen(num_new_edges, 3);
 	std::vector<int> coloring;
-
-	ColoringGenerator(int e, int k)
-		: num_edges(e)
-		, num_colors(k)
-		, coloring(e, 1)
-	{ }
-
-	bool next(std::vector<int>& out)
+	while (gen.next(coloring))
 	{
-		if (is_done) return false;
-		out = coloring;
-
-		int pos = num_edges-1;
-		while (pos >= 0)
+		// Apply edge coloring
+		auto g = rep_plus_one;
+		int new_vertex = v-1;
+		for (int i = 0; i < new_vertex; ++i)
 		{
-			++coloring[pos];
-			if (coloring[pos] <= num_colors) break;
-			coloring[pos] = 1;
-			--pos;
+			g.setEdge(new_vertex, i, coloring[i]);
 		}
 
-		if (pos < 0) is_done = true;
-		return true;
+		// Check if triangle was added
+		bool has_tri = false;
+		for (int i = 0; i < new_vertex; ++i)
+		{
+			for (int j = i+1; j < new_vertex; ++j)
+			{
+				auto e0 = g.getEdge(new_vertex, i);
+				auto e1 = g.getEdge(new_vertex, j);
+				auto e2 = g.getEdge(i, j);
+				if ((e0 == e1) && (e0 == e2) && (e1 == e2)) 
+				{
+					has_tri = true;
+					break;
+				}
+			}
+
+			if (has_tri) break;
+		}
+		if (has_tri) continue;
+
+		// Track distinct colorings
+		auto canon_str = canonize(g);
+		if (!new_canons.contains(canon_str))
+		{
+			new_canons.insert(canon_str);
+			new_graphs.push_back(g);
+		}
 	}
-};
+}
 
 void augment() noexcept
 {
@@ -240,66 +295,30 @@ void augment() noexcept
 	{
 		auto start_time = std::chrono::high_resolution_clock::now();
 
-		int num_new_edges = v - 1;
-		// auto colorings = generateAllColorings(num_new_edges, 3);
 
 		// Go through all previous canonical representatives
+		int num_new_edges = v - 1;
+		auto colorings = generateAllColorings(num_new_edges, 3);
 		std::vector<Ram::EdgeColoredUndirectedGraph> new_graphs;
 		std::unordered_set<std::string> new_canons;
-		for (auto& representative : graphs)
+		for (const auto& representative : graphs)
 		{
-			auto rep_plus_one = representative;
-			rep_plus_one.addVertex();
-
-			// Go through all new edge colors for new vertex
-			// for (const auto& coloring : colorings)
-			ColoringGenerator gen(num_new_edges, 3);
-			std::vector<int> coloring;
-			while (gen.next(coloring))
-			{
-				auto g = rep_plus_one;
-				int new_vertex = v-1;
-				for (int i = 0; i < new_vertex; ++i)
-				{
-					g.setEdge(new_vertex, i, coloring[i]);
-				}
-
-				// Check if triangle was added
-				bool has_tri = false;
-				for (int i = 0; i < new_vertex; ++i)
-				{
-					for (int j = i+1; j < new_vertex; ++j)
-					{
-						auto e0 = g.getEdge(new_vertex, i);
-						auto e1 = g.getEdge(new_vertex, j);
-						auto e2 = g.getEdge(i, j);
-						if ((e0 == e1) && (e0 == e2) && (e1 == e2)) 
-						{
-							has_tri = true;
-							break;
-						}
-					}
-
-					if (has_tri) break;
-				}
-				if (has_tri) continue;
-
-				// Track distinct colorings
-				auto canon_str = canonize(g);
-				if (!new_canons.contains(canon_str))
-				{
-					new_canons.insert(canon_str);
-					new_graphs.push_back(g);
-				}
-			}
+			processRepresentative(
+				representative,
+				num_new_edges,
+				v,
+				new_graphs,
+				new_canons
+			);
 		}
+
 
 		auto end_time = std::chrono::high_resolution_clock::now();
 		Timing::seconds time = end_time - start_time;
 
 		std::printf(
 			"Found %d distinct colorings for k%d in %.2f seconds.\n",
-			static_cast<int>(new_canons.size()),
+			static_cast<int>(new_graphs.size()),
 			v,
 			time.count()
 		);
