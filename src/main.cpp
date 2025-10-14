@@ -240,6 +240,7 @@ void processRepresentative(
 	std::vector<int> coloring;
 	while (gen.next(coloring))
 	{
+	Apply_Coloring:
 		// Apply edge coloring
 		auto g = rep_plus_one;
 		int new_vertex = v-1;
@@ -250,6 +251,7 @@ void processRepresentative(
 
 		// Check if triangle was added
 		bool has_tri = false;
+		size_t tri_maker_idx = 0;
 		for (int i = 0; i < new_vertex; ++i)
 		{
 			for (int j = i+1; j < new_vertex; ++j)
@@ -260,13 +262,32 @@ void processRepresentative(
 				if ((e0 == e1) && (e0 == e2) && (e1 == e2)) 
 				{
 					has_tri = true;
+					tri_maker_idx = j;
 					break;
 				}
 			}
 
 			if (has_tri) break;
 		}
-		if (has_tri) continue;
+
+		if (has_tri)
+		{
+			// continue;
+
+			int color = coloring[tri_maker_idx];
+			bool is_done = false;
+			while (coloring[tri_maker_idx] == color)
+			{
+				if (!gen.next(coloring))
+				{
+					is_done = true;
+					break;
+				}
+			}
+
+			if (is_done) continue;
+			goto Apply_Coloring;
+		}
 
 		// Track distinct colorings
 		auto canon_str = canonize(g);
@@ -298,9 +319,12 @@ void augment() noexcept
 
 		// Go through all previous canonical representatives
 		int num_new_edges = v - 1;
-		auto colorings = generateAllColorings(num_new_edges, 3);
+		// auto colorings = generateAllColorings(num_new_edges, 3);
 		std::vector<Ram::EdgeColoredUndirectedGraph> new_graphs;
 		std::unordered_set<std::string> new_canons;
+
+		new_graphs.reserve(2700000);
+		new_canons.reserve(2700000);
 		for (const auto& representative : graphs)
 		{
 			processRepresentative(
