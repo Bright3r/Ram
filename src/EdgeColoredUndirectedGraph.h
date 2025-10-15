@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -12,6 +13,8 @@
 
 namespace Ram {
 
+using Color = uint8_t;
+
 struct EdgeColoredUndirectedGraph 
 {
 	// Type to be used when interacting with nauty
@@ -19,11 +22,11 @@ struct EdgeColoredUndirectedGraph
 
 
 	std::vector<std::vector<bool>> graph;
-	int num_vertices;
-	int max_color;
-	int num_layers;
+	size_t num_vertices;
+	size_t num_layers;
+	Color max_color;
 
-	EdgeColoredUndirectedGraph(int num_vertices, int max_color) noexcept
+	EdgeColoredUndirectedGraph(size_t num_vertices, Color max_color) noexcept
 		: num_vertices(num_vertices)
 		, max_color(max_color)
 	{
@@ -35,18 +38,18 @@ struct EdgeColoredUndirectedGraph
 		);
 
 		// Create a clique between vertical threads of color encoding vertices
-		for (int e = 0; e < num_vertices; ++e)
+		for (auto e = 0; e < num_vertices; ++e)
 		{
 			createEncodingThreads(e);
 		}
 	}
 
-	int numEncodedVertices() const noexcept
+	size_t numEncodedVertices() const noexcept
 	{
 		return num_vertices * num_layers;
 	}
 
-	int numWordsPerVertex() const noexcept
+	size_t numWordsPerVertex() const noexcept
 	{
 		return SETWORDSNEEDED(numEncodedVertices());
 	}
@@ -71,20 +74,20 @@ struct EdgeColoredUndirectedGraph
 		createEncodingThreads(num_vertices-1);
 	}
 
-	void setEdge(int i, int j, int color) noexcept
+	void setEdge(size_t i, size_t j, Color color) noexcept
 	{
 		assert(i >= 0 && i < num_vertices && j >= 0 && j < num_vertices 
 			&& "Invalid bounds on EdgeColoredGraph::setEdge()"
 		);
 
-		int i_base = i * num_layers;
-		int j_base = j * num_layers;
+		auto i_base = i * num_layers;
+		auto j_base = j * num_layers;
 
 		// Remove edges of other colors
-		for (int l = 0; l < num_layers; ++l)
+		for (auto l = 0; l < num_layers; ++l)
 		{
-			int i_encoded = i_base + l;
-			int j_encoded = j_base + l;
+			auto i_encoded = i_base + l;
+			auto j_encoded = j_base + l;
 
 			graph[i_encoded][j_encoded] = false;
 			graph[j_encoded][i_encoded] = false;
@@ -94,10 +97,10 @@ struct EdgeColoredUndirectedGraph
 		if (color <= 0) return;
 
 		// Encode color as binary tree representation of color's integer
-		for (int l = 0; l < num_layers; ++l)
+		for (auto l = 0; l < num_layers; ++l)
 		{
-			int i_encoded = i_base + l;
-			int j_encoded = j_base + l;
+			auto i_encoded = i_base + l;
+			auto j_encoded = j_base + l;
 
 			bool bit_value = (color >> l) & 0x1;
 			graph[i_encoded][j_encoded] = bit_value;
@@ -105,20 +108,20 @@ struct EdgeColoredUndirectedGraph
 		}
 	}
 
-	int getEdge(int i, int j) const noexcept
+	Color getEdge(size_t i, size_t j) const noexcept
 	{
-		assert(i >= 0 && i < num_vertices && j >= 0 && j < num_vertices 
+		assert(i < num_vertices && j < num_vertices 
 			&& "Invalid bounds on EdgeColoredGraph::getEdge()"
 		);
 
-		int i_base = i * num_layers;
-		int j_base = j * num_layers;
+		auto i_base = i * num_layers;
+		auto j_base = j * num_layers;
 
-		int c = 0;
-		for (int l = 0; l < num_layers; ++l)
+		Color c = 0;
+		for (auto l = 0; l < num_layers; ++l)
 		{
-			int i_encoded = i_base + l;
-			int j_encoded = j_base + l;
+			auto i_encoded = i_base + l;
+			auto j_encoded = j_base + l;
 
 			bool bit_value = graph[i_encoded][j_encoded];
 			c |= (bit_value << l);
@@ -129,15 +132,15 @@ struct EdgeColoredUndirectedGraph
 
 	bool isTriangleFree() noexcept
 	{
-		for (int i = 0; i < num_vertices; ++i)
+		for (auto i = 0; i < num_vertices; ++i)
 		{
-			for (int j = i+1; j < num_vertices; ++j)
+			for (auto j = i+1; j < num_vertices; ++j)
 			{
-				int c0 = getEdge(i, j);
-				for (int k = j+1; k < num_vertices; ++k)
+				Color c0 = getEdge(i, j);
+				for (auto k = j+1; k < num_vertices; ++k)
 				{
-					int c1 = getEdge(i, k);
-					int c2 = getEdge(j, k);
+					Color c1 = getEdge(i, k);
+					Color c2 = getEdge(j, k);
 					if (c0 == 0 || c1 == 0 || c2 == 0) 
 					{
 						continue;
@@ -156,15 +159,15 @@ struct EdgeColoredUndirectedGraph
 
 	bool isPartial() noexcept
 	{
-		for (int i = 0; i < num_vertices; ++i)
+		for (auto i = 0; i < num_vertices; ++i)
 		{
-			for (int j = i+1; j < num_vertices; ++j)
+			for (auto j = i+1; j < num_vertices; ++j)
 			{
-				int c0 = getEdge(i, j);
-				for (int k = j+1; k < num_vertices; ++k)
+				Color c0 = getEdge(i, j);
+				for (auto k = j+1; k < num_vertices; ++k)
 				{
-					int c1 = getEdge(i, k);
-					int c2 = getEdge(j, k);
+					Color c1 = getEdge(i, k);
+					Color c2 = getEdge(j, k);
 					if (c0 == 0 || c1 == 0 || c2 == 0) 
 					{
 						return true;
@@ -179,22 +182,22 @@ struct EdgeColoredUndirectedGraph
 	std::vector<EdgeColoredUndirectedGraph> getColorPermutations(int max_color = -1) const noexcept
 	{
 		if (max_color < 0) max_color = this->max_color;
-		std::vector<int> colors(max_color, 0);
+		std::vector<Color> colors(max_color, 0);
 		std::iota(colors.begin(), colors.end(), 1);
 
 		std::vector<EdgeColoredUndirectedGraph> res;
 		do
 		{
 			EdgeColoredUndirectedGraph g(num_vertices, this->max_color);
-			for (int i = 0; i < num_vertices; ++i)
+			for (auto i = 0; i < num_vertices; ++i)
 			{
-				for (int j = i+1; j < num_vertices; ++j)
+				for (auto j = i+1; j < num_vertices; ++j)
 				{
-					int ec = getEdge(i, j);
+					Color ec = getEdge(i, j);
 					if (ec == 0) continue;
 
 					// Use encoded color value as index into color permutation
-					int mapped_color = (ec > max_color) 
+					Color mapped_color = (ec > max_color) 
 						? ec 
 						: colors[ec-1];
 
@@ -210,25 +213,39 @@ struct EdgeColoredUndirectedGraph
 	std::string to_string() const noexcept
 	{
 		std::stringstream ss;
-		for (int i = 0; i < num_vertices; ++i)
+		for (auto i = 0; i < num_vertices; ++i)
 		{
-			for (int j = 0; j < num_vertices; ++j)
+			for (auto j = 0; j < num_vertices; ++j)
 			{
-				ss << getEdge(i, j) << " ";
+				ss << static_cast<int>(getEdge(i, j)) << " ";
 			}
 			ss << "\n";
 		}
 		return ss.str();
 	}
 
+	// std::string to_string() const noexcept
+	// {
+	// 	std::stringstream ss;
+	// 	for (auto i = 0; i < numEncodedVertices(); ++i)
+	// 	{
+	// 		for (auto j = 0; j < numEncodedVertices(); ++j)
+	// 		{
+	// 			ss << static_cast<int>(graph[i][j]) << " ";
+	// 		}
+	// 		ss << "\n";
+	// 	}
+	// 	return ss.str();
+	// }
+
 	NautyGraph nautify() const noexcept
 	{
 		NautyGraph g(numEncodedVertices()*numWordsPerVertex());
 		EMPTYGRAPH(g.data(), numEncodedVertices(), numWordsPerVertex());
 
-		for (int i = 0; i < numEncodedVertices(); ++i)
+		for (auto i = 0; i < numEncodedVertices(); ++i)
 		{
-			for (int j = i+1; j < numEncodedVertices(); ++j)
+			for (auto j = i+1; j < numEncodedVertices(); ++j)
 			{
 				if (graph[i][j]) ADDONEEDGE(g.data(), i, j, numWordsPerVertex());
 			}
@@ -238,10 +255,10 @@ struct EdgeColoredUndirectedGraph
 	}
 
 private:
-	int numLayersForMaxColor(int max_color) const noexcept
+	size_t numLayersForMaxColor(Color max_color) const noexcept
 	{
 		// Get the number of bits used for the binary representation of max_color
-		int num_layers = 0;
+		size_t num_layers = 0;
 		while (max_color > 0)
 		{
 			++num_layers;
@@ -250,15 +267,15 @@ private:
 		return num_layers;
 	}
 
-	void createEncodingThreads(int v) noexcept
+	void createEncodingThreads(size_t v) noexcept
 	{
-		int v_base = v * num_layers;
-		for (int l0 = 0; l0 < num_layers; ++l0)
+		auto v_base = v * num_layers;
+		for (auto l0 = 0; l0 < num_layers; ++l0)
 		{
-			for (int l1 = l0+1; l1 < num_layers; ++l1)
+			for (auto l1 = l0+1; l1 < num_layers; ++l1)
 			{
-				int v0 = v_base + l0;
-				int v1 = v_base + l1;
+				auto v0 = v_base + l0;
+				auto v1 = v_base + l1;
 				graph[v0][v1] = true;
 				graph[v1][v0] = true;
 			}

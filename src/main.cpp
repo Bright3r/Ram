@@ -1,6 +1,7 @@
 #include <chrono>
 #include <cstdio>
 #include <ctime>
+#include <utility>
 #include <vector>
 #include <cassert>
 #include <fstream>
@@ -14,11 +15,11 @@
 using namespace Ram;
 
 // Colors
-constexpr int Uncolored = 0;
-constexpr int Red = 1;
-constexpr int Blue = 2;
-constexpr int Green = 3;
-constexpr int Purple = 4;
+constexpr Color Uncolored = 0;
+constexpr Color Red = 1;
+constexpr Color Blue = 2;
+constexpr Color Green = 3;
+constexpr Color Purple = 4;
 
 // Type Aliases
 namespace Timing 
@@ -29,19 +30,19 @@ namespace Timing
 
 struct ColoringGenerator
 {
-	int num_edges;
-	int num_colors;
+	size_t num_edges;
+	size_t num_colors;
 	bool is_done = false;
 
-	std::vector<int> coloring;
+	std::vector<Color> coloring;
 
-	ColoringGenerator(int e, int k)
+	ColoringGenerator(size_t e, size_t k)
 		: num_edges(e)
 		, num_colors(k)
 		, coloring(e, 1)
 	{ }
 
-	bool next(std::vector<int>& out)
+	bool next(std::vector<Color>& out)
 	{
 		if (is_done) return false;
 		out = coloring;
@@ -62,8 +63,10 @@ struct ColoringGenerator
 
 
 
-template <size_t NumVertices, size_t MaxColor>
-EdgeColoredUndirectedGraph load_adj(std::filesystem::path filename) noexcept
+EdgeColoredUndirectedGraph load_adj(
+	std::filesystem::path filename,
+	size_t num_vertices,
+	Color max_color) noexcept
 {
 	std::ifstream file(filename);
 	assert(file.is_open() && "Ram::load_adj() Failed: file not found.");
@@ -73,16 +76,16 @@ EdgeColoredUndirectedGraph load_adj(std::filesystem::path filename) noexcept
 	std::string word;
 
 	// Read File line by line to construct graph
-	int i = 0;
-	EdgeColoredUndirectedGraph g(NumVertices, MaxColor);
+	size_t i = 0;
+	EdgeColoredUndirectedGraph g(num_vertices, max_color);
 	while (std::getline(file, line)) {
 		// Read line for this vertex's edge colors
 		std::stringstream ss(line);
-		int j = 0;
+		size_t j = 0;
 		while (ss >> word) {
 			if (j > i)
 			{
-				int color = std::stoi(word);
+				Color color = static_cast<Color>(std::stoi(word));
 				g.setEdge(i, j, color);
 			}
 			++j;
@@ -93,19 +96,62 @@ EdgeColoredUndirectedGraph load_adj(std::filesystem::path filename) noexcept
 	return g;
 }
 
+std::vector<EdgeColoredUndirectedGraph> load_bulk(
+	std::filesystem::path filename,
+	size_t num_vertices,
+	Color max_color) noexcept
+{
+	std::ifstream file(filename);
+	assert(file.is_open() && "Ram::load_bulk() Failed: file not found.");
+
+	std::vector<EdgeColoredUndirectedGraph> res;
+
+	// Parse File
+	std::string line;
+	std::string word;
+
+	// Read File line by line to construct graph
+	size_t i = 0;
+	EdgeColoredUndirectedGraph g(num_vertices, max_color);
+	while (std::getline(file, line)) {
+		// Read line for this vertex's edge colors
+		std::stringstream ss(line);
+		size_t j = 0;
+		bool is_end = true;
+		while (ss >> word) {
+			is_end = false;
+			Color color = static_cast<Color>(std::stoi(word));
+
+			g.setEdge(i, j, color);
+			++j;
+		}
+		++i;
+
+		// Blank line marks new graph
+		if (is_end)
+		{
+			res.push_back(std::move(g));
+			g = EdgeColoredUndirectedGraph(num_vertices, max_color);
+			i = 0;
+		}
+	}
+
+	return res;
+}
+
 EdgeColoredUndirectedGraph make_T1() noexcept
 {
-	return load_adj<16, 3>("graphs/T1.adj");
+	return load_adj("graphs/T1.adj", 16, 3);
 }
 
 EdgeColoredUndirectedGraph make_T2() noexcept
 {
-	return load_adj<16, 3>("graphs/T2.adj");
+	return load_adj("graphs/T2.adj", 16, 3);
 }
 
 bool isIsomorphic(graph* cg1, graph* cg2, int n, int m) noexcept
 {
-	for (int i = 0; i < n*m; ++i)
+	for (auto i = 0; i < n*m; ++i)
 	{
 		if (cg1[i] != cg2[i]) return false;
 	}
@@ -115,7 +161,7 @@ bool isIsomorphic(graph* cg1, graph* cg2, int n, int m) noexcept
 std::string getCanonString(graph* cg, int n, int m) noexcept
 {
 	std::string canon;
-	for (int i = 0; i < n*m; ++i)
+	for (auto i = 0; i < n*m; ++i)
 	{
 		canon += std::to_string(cg[i]);
 	}
@@ -152,12 +198,12 @@ void writeGraphsToFile(
 	std::printf("\n");
 }
 
-std::vector<std::vector<int>> generateAllColorings(int e, int k)
+std::vector<std::vector<Color>> generateAllColorings(size_t e, size_t k)
 {
 	auto start_time = std::chrono::high_resolution_clock::now();
 
-	std::vector<std::vector<int>> res;
-	std::vector<int> coloring(e, 1);
+	std::vector<std::vector<Color>> res;
+	std::vector<Color> coloring(e, 1);
 	while (true)
 	{
 		res.push_back(coloring);
@@ -179,8 +225,8 @@ std::vector<std::vector<int>> generateAllColorings(int e, int k)
 	Timing::seconds time = end_time - start_time;
 	std::printf(
 		"Generated colorings for %d edges, %d colors in %.2f seconds.\n",
-		e,
-		k,
+		static_cast<int>(e),
+		static_cast<int>(k),
 		time.count()
 	);
 
@@ -198,7 +244,7 @@ std::string canonize(const Ram::EdgeColoredUndirectedGraph& g) noexcept
 		int n = weak_g.numEncodedVertices();
 		int m = weak_g.numWordsPerVertex();
 		int lab[n], ptn[n], orbits[n];
-		for (int i = 0; i < n; ++i)
+		for (auto i = 0; i < n; ++i)
 		{
 			lab[i] = i;
 			ptn[i] = (i+1 < n) ? 1 : 0;
@@ -226,8 +272,7 @@ std::string canonize(const Ram::EdgeColoredUndirectedGraph& g) noexcept
 
 void processRepresentative(
 	const Ram::EdgeColoredUndirectedGraph& representative,
-	int num_new_edges, 
-	int v,
+	const std::vector<std::vector<Color>>& colorings,
 	std::vector<Ram::EdgeColoredUndirectedGraph>& new_graphs,
 	std::unordered_set<std::string>& new_canons) noexcept
 {
@@ -236,25 +281,24 @@ void processRepresentative(
 	rep_plus_one.addVertex();
 
 	// Go through all new edge colors for new vertex
-	ColoringGenerator gen(num_new_edges, 3);
-	std::vector<int> coloring;
-	while (gen.next(coloring))
+	for (size_t c = 0; c < colorings.size(); ++c)
 	{
-	Apply_Coloring:
+		const auto& curr_coloring = colorings[c];
+
 		// Apply edge coloring
 		auto g = rep_plus_one;
-		int new_vertex = v-1;
-		for (int i = 0; i < new_vertex; ++i)
+		size_t new_vertex = rep_plus_one.num_vertices - 1;
+		for (auto i = 0; i < new_vertex; ++i)
 		{
-			g.setEdge(new_vertex, i, coloring[i]);
+			g.setEdge(new_vertex, i, curr_coloring[i]);
 		}
 
 		// Check if triangle was added
 		bool has_tri = false;
 		size_t tri_maker_idx = 0;
-		for (int i = 0; i < new_vertex; ++i)
+		for (auto i = 0; i < new_vertex; ++i)
 		{
-			for (int j = i+1; j < new_vertex; ++j)
+			for (auto j = i+1; j < new_vertex; ++j)
 			{
 				auto e0 = g.getEdge(new_vertex, i);
 				auto e1 = g.getEdge(new_vertex, j);
@@ -270,23 +314,20 @@ void processRepresentative(
 			if (has_tri) break;
 		}
 
+		// Skip colorings with triangles
 		if (has_tri)
 		{
-			// continue;
-
-			int color = coloring[tri_maker_idx];
-			bool is_done = false;
-			while (coloring[tri_maker_idx] == color)
+			// Find next coloring that breaks current triangle
+			size_t new_c = c;
+			Color tri_color = curr_coloring[tri_maker_idx];
+			while (new_c < colorings.size() && 
+				colorings[new_c][tri_maker_idx] == tri_color)
 			{
-				if (!gen.next(coloring))
-				{
-					is_done = true;
-					break;
-				}
+				++new_c;
 			}
 
-			if (is_done) continue;
-			goto Apply_Coloring;
+			c = new_c-1;
+			continue;
 		}
 
 		// Track distinct colorings
@@ -299,38 +340,47 @@ void processRepresentative(
 	}
 }
 
-void augment() noexcept
+void augment(int k_start = 3, int k_stop = 16, Color max_color = 3) noexcept
 {
-	// Get all k2's
 	std::vector<Ram::EdgeColoredUndirectedGraph> graphs;
-	Ram::EdgeColoredUndirectedGraph base(2, 3);
-	for (int c = 1; c <= 3; ++c)
+	if (k_start == 3)
 	{
-		auto g = base;
-		g.setEdge(0, 1, c);
-		graphs.push_back(g);
+		// Get all k2's
+		Ram::EdgeColoredUndirectedGraph base(2, max_color);
+		for (auto c = 1; c <= max_color; ++c)
+		{
+			auto g = base;
+			g.setEdge(0, 1, static_cast<Color>(c));
+			graphs.push_back(g);
+		}
+	}
+	else
+	{
+		std::stringstream start_file;
+		start_file << "graphs/k" << k_start-1 << ".adj";
+		graphs = load_bulk(start_file.str(), k_start-1, max_color);
 	}
 
+
 	// Iterate through k3-k16
-	for (int v = 3; v <= 16; ++v)
+	for (auto v = k_start; v <= k_stop; ++v)
 	{
 		auto start_time = std::chrono::high_resolution_clock::now();
 
 
 		// Go through all previous canonical representatives
-		int num_new_edges = v - 1;
-		// auto colorings = generateAllColorings(num_new_edges, 3);
+		auto num_new_edges = v-1;
+		auto colorings = generateAllColorings(num_new_edges, max_color);
+
 		std::vector<Ram::EdgeColoredUndirectedGraph> new_graphs;
 		std::unordered_set<std::string> new_canons;
-
 		new_graphs.reserve(2700000);
 		new_canons.reserve(2700000);
 		for (const auto& representative : graphs)
 		{
 			processRepresentative(
 				representative,
-				num_new_edges,
-				v,
+				colorings,
 				new_graphs,
 				new_canons
 			);
@@ -357,7 +407,7 @@ void augment() noexcept
 
 int main(int argc, char** argv)
 {
-	augment();
+	augment(6);
 	
 	return 0;
 }
