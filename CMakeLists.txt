@@ -6,6 +6,9 @@ project(62)
 
 add_executable(main
 	src/main.cpp
+	src/EdgeColoredUndirectedGraph.cpp
+	src/GraphUtils.cpp
+	src/CanonicalAugmentation.cpp
 )
 
 target_include_directories(
