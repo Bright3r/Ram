@@ -8,7 +8,6 @@
 #include <string>
 #include <filesystem>
 
-#define MAXN (17*4)
 #include "nauty.h"
 
 namespace Ram {
