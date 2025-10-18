@@ -23,4 +23,7 @@ std::vector<std::vector<Ram::Color>> generateAllColorings(size_t e, size_t k);
 void writeGraphsToFile(
 	const std::filesystem::path& path,
 	const std::vector<Ram::EdgeColoredUndirectedGraph>& graphs);
+	
+std::vector<Ram::EdgeColoredUndirectedGraph> loadBulk(std::filesystem::path filename) noexcept;
+
 

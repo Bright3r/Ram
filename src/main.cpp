@@ -1,5 +1,5 @@
-#include <chrono>
 #include <functional>
+#include <iostream>
 #include <numeric>
 #include <string>
 #include <unordered_set>
@@ -13,12 +13,12 @@ using namespace Ram;
 
 EdgeColoredUndirectedGraph make_T1() noexcept
 {
-	return load_adj("graphs/T1.adj", 16, 3);
+	return loadBulk("graphs/T1.adj")[0];
 }
 
 EdgeColoredUndirectedGraph make_T2() noexcept
 {
-	return load_adj("graphs/T2.adj", 16, 3);
+	return loadBulk("graphs/T2.adj")[0];
 }
 
 std::vector<std::vector<int>> permute(int n, int k) noexcept
@@ -130,7 +130,7 @@ void prop1() noexcept
 
 void prop2() noexcept
 {
-	auto upsilon1 = load_bulk("graphs/62/upsilon1.adj", 17, 4);
+	auto upsilon1 = loadBulk("graphs/62/upsilon1.adj");
 	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
 
 	std::vector<std::unordered_set<std::string>> canons(17);
@@ -280,8 +280,9 @@ void prop2() noexcept
 
 int main(int argc, char** argv)
 {
+	prop1();
 	prop2();
-	
+
 	return 0;
 }
 

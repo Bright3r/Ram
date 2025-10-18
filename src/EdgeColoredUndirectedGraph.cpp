@@ -193,6 +193,16 @@ EdgeColoredUndirectedGraph::getColorPermutations(int max_color) const noexcept
 	return res;
 }
 
+std::string EdgeColoredUndirectedGraph::header_string() const noexcept
+{
+	std::stringstream ss;
+	ss << static_cast<int>(num_vertices) 
+		<< " " 
+		<< static_cast<int>(max_color);
+
+	return ss.str();
+}
+
 std::string EdgeColoredUndirectedGraph::to_string() const noexcept
 {
 	std::stringstream ss;
@@ -248,83 +258,6 @@ void EdgeColoredUndirectedGraph::createEncodingThreads(size_t v) noexcept
 			graph[v1][v0] = true;
 		}
 	}
-}
-
-
-EdgeColoredUndirectedGraph load_adj(
-	std::filesystem::path filename,
-	size_t num_vertices,
-	Color max_color) noexcept
-{
-	std::ifstream file(filename);
-	assert(file.is_open() && "Ram::load_adj() Failed: file not found.");
-
-	// Parse File
-	std::string line;
-	std::string word;
-
-	// Read File line by line to construct graph
-	size_t i = 0;
-	EdgeColoredUndirectedGraph g(num_vertices, max_color);
-	while (std::getline(file, line)) {
-		// Read line for this vertex's edge colors
-		std::stringstream ss(line);
-		size_t j = 0;
-		while (ss >> word) {
-			if (j > i)
-			{
-				Color color = static_cast<Color>(std::stoi(word));
-				g.setEdge(i, j, color);
-			}
-			++j;
-		}
-		++i;
-	}
-
-	return g;
-}
-
-std::vector<EdgeColoredUndirectedGraph> load_bulk(
-	std::filesystem::path filename,
-	size_t num_vertices,
-	Color max_color) noexcept
-{
-	std::ifstream file(filename);
-	assert(file.is_open() && "Ram::load_bulk() Failed: file not found.");
-
-	std::vector<EdgeColoredUndirectedGraph> res;
-
-	// Parse File
-	std::string line;
-	std::string word;
-
-	// Read File line by line to construct graph
-	size_t i = 0;
-	EdgeColoredUndirectedGraph g(num_vertices, max_color);
-	while (std::getline(file, line)) {
-		// Read line for this vertex's edge colors
-		std::stringstream ss(line);
-		size_t j = 0;
-		bool is_end = true;
-		while (ss >> word) {
-			is_end = false;
-			Color color = static_cast<Color>(std::stoi(word));
-
-			g.setEdge(i, j, color);
-			++j;
-		}
-		++i;
-
-		// Blank line marks new graph
-		if (is_end)
-		{
-			res.push_back(std::move(g));
-			g = EdgeColoredUndirectedGraph(num_vertices, max_color);
-			i = 0;
-		}
-	}
-
-	return res;
 }
 
 };	// end of namespace

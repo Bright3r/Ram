@@ -1,4 +1,5 @@
 #include "GraphUtils.h"
+#include "EdgeColoredUndirectedGraph.h"
 
 #include <fstream>
 #include <chrono>
@@ -104,6 +105,7 @@ void writeGraphsToFile(
 	std::ofstream out(path);
 	for (const auto& g : graphs)
 	{
+		out << g.header_string() << "\n";
 		out << g.to_string() << "\n";
 	}
 	out.flush();
@@ -116,5 +118,62 @@ void writeGraphsToFile(
 		time.count()
 	);
 	std::printf("\n");
+}
+
+std::vector<EdgeColoredUndirectedGraph> loadBulk(std::filesystem::path filename) noexcept
+{
+	std::ifstream file(filename);
+	assert(file.is_open() && "Ram::load_bulk() Failed: file not found.");
+
+	std::vector<EdgeColoredUndirectedGraph> res;
+
+	// Parse File
+	std::string line;
+	std::string word;
+
+	while (std::getline(file, line))
+	{
+		// Parse Header
+		size_t num_vertices;
+		Color max_color;
+
+		int temp;
+		std::stringstream ss(line);
+
+		ss >> temp;
+		num_vertices = static_cast<size_t>(temp);
+
+		ss >> temp;
+		max_color = static_cast<Color>(temp);
+
+		// Read File line by line to construct graph
+		size_t i = 0;
+		EdgeColoredUndirectedGraph g(num_vertices, max_color);
+		while (std::getline(file, line)) 
+		{
+			// Read line for this vertex's edge colors
+			ss = std::stringstream(line);
+			size_t j = 0;
+			bool is_end = true;
+			while (ss >> word) 
+			{
+				is_end = false;
+				Color color = static_cast<Color>(std::stoi(word));
+
+				g.setEdge(i, j, color);
+				++j;
+			}
+			++i;
+
+			// Blank line marks new graph
+			if (is_end)
+			{
+				res.emplace_back(std::move(g));
+				break;
+			}
+		}
+	}
+
+	return res;
 }
 

@@ -101,7 +101,7 @@ void augment(int k_start = 3, int k_stop = 16, Color max_color = 3) noexcept
 	{
 		std::stringstream start_file;
 		start_file << "graphs/k" << k_start-1 << ".adj";
-		graphs = load_bulk(start_file.str(), k_start-1, max_color);
+		graphs = loadBulk(start_file.str());
 	}
 
 
@@ -152,7 +152,7 @@ void verify() noexcept
 	{
 		std::stringstream start_file;
 		start_file << "graphs/k" << k << ".adj";
-		auto graphs = load_bulk(start_file.str(), k, 3);
+		auto graphs = loadBulk(start_file.str());
 
 		std::unordered_set<std::string> canons;
 		for (const auto& g : graphs)

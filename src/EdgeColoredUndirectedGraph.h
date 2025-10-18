@@ -84,6 +84,8 @@ struct EdgeColoredUndirectedGraph
 	std::vector<EdgeColoredUndirectedGraph> 
 	getColorPermutations(int max_color = -1) const noexcept;
 
+	std::string header_string() const noexcept;
+
 	std::string to_string() const noexcept;
 
 	NautyGraph nautify() const noexcept;
@@ -93,17 +95,6 @@ private:
 
 	void createEncodingThreads(size_t v) noexcept;
 };
-
-
-EdgeColoredUndirectedGraph load_adj(
-	std::filesystem::path filename,
-	size_t num_vertices,
-	Color max_color) noexcept;
-
-std::vector<EdgeColoredUndirectedGraph> load_bulk(
-	std::filesystem::path filename,
-	size_t num_vertices,
-	Color max_color) noexcept;
 
 };	// end of namespace
 
