@@ -1,10 +1,7 @@
 #include "EdgeColoredUndirectedGraph.h"
 
 #include <numeric>
-#include <utility>
-#include <fstream>
 #include <sstream>
-
 
 namespace Ram {
 
@@ -110,6 +107,11 @@ Color EdgeColoredUndirectedGraph::getEdge(size_t i, size_t j) const noexcept
 	}
 
 	return c;
+}
+
+bool EdgeColoredUndirectedGraph::hasEdge(size_t i, size_t j) const noexcept
+{
+	return getEdge(i, j) != 0;
 }
 
 bool EdgeColoredUndirectedGraph::isTriangleFree() noexcept

@@ -77,6 +77,8 @@ struct EdgeColoredUndirectedGraph
 
 	Color getEdge(size_t i, size_t j) const noexcept;
 
+	bool hasEdge(size_t i, size_t j) const noexcept;
+
 	bool isTriangleFree() noexcept;
 
 	bool isPartial() noexcept;
