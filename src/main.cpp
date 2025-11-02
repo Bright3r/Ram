@@ -73,220 +73,6 @@ std::vector<std::vector<int>> choose(int n, int k) noexcept
 }
 
 
-void prop1() noexcept
-{
-	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
-
-	std::vector<EdgeColoredUndirectedGraph> graphs;
-	std::vector<std::unordered_set<std::string>> canons(17);
-
-	// Create marked subset coloring for all possible subsets
-	for (auto k = 1; k <= 16; ++k)
-	{
-		for (const auto& combo : choose(16, k))
-		{
-			for (const auto& t : ts)
-			{
-				// Create t with 17 vertices, 4 colors
-				EdgeColoredUndirectedGraph t_prime(17, 4);
-				for (auto i = 0; i < 16; ++i)
-					for (auto j = i+1; j < 16; ++j)
-						t_prime.setEdge(i, j, t.getEdge(i, j));
-
-				// Mark the subset
-				auto g = t_prime;
-				for (auto v_marked : combo)
-				{
-					// Create color 4 edge to 17th vertex
-					g.setEdge(16, v_marked, 4);
-				}
-
-				// Canonize
-				auto canon = canonize(g);
-				if (!canons[k].contains(canon))
-				{
-					canons[k].insert(canon);
-					graphs.push_back(g);
-				}
-			}
-		}
-
-		std::printf("Finished k=%d\n", static_cast<int>(k));
-	}
-
-	for (auto k = 1; k <= 16; ++k)
-	{
-		std::printf(
-			"Found %d colorings for S=%d.\n",
-			static_cast<int>(canons[k].size()),
-			static_cast<int>(k)
-		);
-	}
-
-	writeGraphsToFile("graphs/62/upsilon1.adj", graphs);
-}
-
-
-void prop2_1() noexcept
-{
-	auto upsilon1 = loadBulk("graphs/62/upsilon1.adj");
-	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
-
-	std::vector<std::unordered_set<std::string>> canons(17);
-	std::vector<EdgeColoredUndirectedGraph> graphs;
-	int progress = 0;
-	for (const auto& g : upsilon1)
-	{
-		// Get marked vertices of the graph
-		std::unordered_set<Vertex> marked;
-		for (auto v = 0; v < 16; ++v)
-		{
-			if (g.getEdge(v, 16) == 4)
-			{
-				marked.insert(v);
-			}
-		}
-		std::vector<Vertex> marked_v(marked.begin(), marked.end());
-		auto k = marked_v.size();
-
-		for (const auto& t : ts)
-		{
-			// Base graph for overlapping g and t
-			auto num_vertices = 32 - k;
-			EdgeColoredUndirectedGraph overlap_base(num_vertices, 4);
-
-			// Copy t's colors onto base graph
-			for (auto i = 0; i < 16; ++i)
-				for (auto j = i+1; j < 16; ++j)
-					overlap_base.setEdge(i, j, t.getEdge(i, j));
-
-			// Map unmarked vertices of g onto vertices of the base graph
-			std::vector<int> g_map(16, -1);
-			int v_map = 16;
-			for (auto v = 0; v < 16; ++v)
-			{
-				if (!marked.contains(v))
-				{
-					g_map[v] = v_map;
-					++v_map;
-				}
-			}
-
-			// Copy g's unmarked colors onto base graph
-			for (auto i = 0; i < 16; ++i)
-			{
-				if (marked.contains(i)) continue;
-				for (auto j = i+1; j < 16; ++j)
-				{
-					if (marked.contains(j)) continue;
-
-					overlap_base.setEdge(g_map[i], g_map[j], g.getEdge(i, j));
-				}
-			}
-
-
-			// Backtrack over all possible mappings of marked vertices onto vertices of t
-			std::vector<int> map_g_to_t(16, -1);
-			std::vector<bool> used_t(16, false);
-			std::function<void(int)> dfs = [&](int depth)
-			{
-				// Full graph constructed
-				if (depth == k)
-				{
-					auto overlap = overlap_base;
-
-					// Create u and v of attaching set
-					overlap.addVertex();
-					overlap.addVertex();
-					auto u_attach = overlap.num_vertices - 2;
-					auto v_attach = overlap.num_vertices - 1;
-
-					// Copy marked vertices of g into overlap
-					for (auto vm_g : marked_v)
-					{
-						// Find corresponding vertex in t
-						auto vm_t = map_g_to_t[vm_g];
-
-						// Add edge between marked vertices of g with u and v of attaching set
-						overlap.setEdge(u_attach, vm_t, 4);
-						overlap.setEdge(v_attach, vm_t, 4);
-
-						// Copy the outgoing edges from marked vertices in g
-						// as outgoing edges from vertices of t in overlap
-						for (auto v = 0; v < 16; ++v)
-						{
-							auto v_g = g_map[v];
-							if (v_g == -1) continue;
-
-							overlap.setEdge(vm_t, v_g, g.getEdge(vm_g, v));
-						}
-					}
-
-					// Canonize
-					auto canon = canonize(overlap);
-					if (!canons[k].contains(canon))
-					{
-						canons[k].insert(canon);
-						graphs.push_back(overlap);
-					}
-					return;
-				}
-
-				// Find a vertex in t that we can map to the marked vertex in g
-				auto v_g = marked_v[depth];
-				for (auto v_t = 0; v_t < 16; ++v_t)
-				{
-					if (used_t[v_t]) continue;
-
-					// Check that edges from previously mapped vertices
-					// to new marked vertex agrees with colors in g and mapped t
-					bool ok = true;
-					for (auto prev = 0; prev < depth; ++prev)
-					{
-						auto v_g_prev = marked_v[prev];
-						auto v_t_prev = map_g_to_t[v_g_prev];
-						if (v_t_prev == -1) continue;
-						if (g.getEdge(v_g, v_g_prev) != t.getEdge(v_t, v_t_prev))
-						{
-							ok = false;
-							break;
-						}
-					}
-
-					if (!ok) continue;
-
-					// Found valid mapping
-					map_g_to_t[v_g] = v_t;
-					used_t[v_t] = true;
-
-					// Recurse then continue
-					dfs(depth + 1);
-					used_t[v_t] = false;
-					map_g_to_t[v_g] = -1;
-				}
-			};
-
-			// Run algo on current graph
-			dfs(0);
-		}
-
-		std::printf("Finished g%d\n", progress++);
-	}
-
-	// Output number of embeddings
-	for (auto k = 1; k <= 16; ++k)
-	{
-		std::printf(
-			"Found %d embeddings for k=%d\n",
-			static_cast<int>(canons[k].size()),
-			k
-		);
-	}
-
-	// Save graphs
-	writeGraphsToFile("graphs/62/upsilon2.adj", graphs);
-}
-
 
 using Embedding = std::vector<int>;
 
@@ -489,6 +275,180 @@ EdgeColoredUndirectedGraph getNeighborhood(
 }
 
 
+void prop1() noexcept
+{
+	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
+
+	std::vector<EdgeColoredUndirectedGraph> graphs;
+	std::vector<std::unordered_set<std::string>> canons(17);
+
+	// Create marked subset coloring for all possible subsets
+	for (auto k = 1; k <= 16; ++k)
+	{
+		for (const auto& combo : choose(16, k))
+		{
+			for (const auto& t : ts)
+			{
+				// Create t with 17 vertices, 4 colors
+				EdgeColoredUndirectedGraph t_prime(17, 4);
+				for (auto i = 0; i < 16; ++i)
+					for (auto j = i+1; j < 16; ++j)
+						t_prime.setEdge(i, j, t.getEdge(i, j));
+
+				// Mark the subset
+				auto g = t_prime;
+				for (auto v_marked : combo)
+				{
+					// Create color 4 edge to 17th vertex
+					g.setEdge(16, v_marked, 4);
+				}
+
+				// Canonize
+				auto canon = canonize(g);
+				if (!canons[k].contains(canon))
+				{
+					canons[k].insert(canon);
+					graphs.push_back(g);
+				}
+			}
+		}
+
+		std::printf("Finished k=%d\n", static_cast<int>(k));
+	}
+
+	for (auto k = 1; k <= 16; ++k)
+	{
+		std::printf(
+			"Found %d colorings for S=%d.\n",
+			static_cast<int>(canons[k].size()),
+			static_cast<int>(k)
+		);
+	}
+
+	writeGraphsToFile("graphs/62/upsilon1.adj", graphs);
+}
+
+
+void prop2_1() noexcept
+{
+	auto upsilon1 = loadBulk("graphs/62/upsilon1.adj");
+	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
+
+	std::vector<std::unordered_set<std::string>> canons(17);
+	std::vector<EdgeColoredUndirectedGraph> graphs;
+	int progress = 0;
+	for (const auto& g : upsilon1)
+	{
+		// Get marked vertices of the graph
+		std::vector<Vertex> marked;
+		for (auto v = 0; v < 16; ++v)
+		{
+			if (g.getEdge(v, 16) == 4)
+			{
+				marked.push_back(v);
+			}
+		}
+
+		// Construct base of overlapping graph
+		EdgeColoredUndirectedGraph overlap_base(32 - marked.size(), 4);
+		for (auto i = 0; i < 16; ++i)
+		{
+			for (auto j = i+1; j < 16; ++j)
+			{
+				overlap_base.setEdge(i, j, g.getEdge(i, j));
+			}
+		}
+
+		// Construct subgraph of marked vertices
+		EdgeColoredUndirectedGraph gm(marked.size(), 4);
+		for (auto i = 0; i < marked.size(); ++i)
+		{
+			for (auto j = i+1; j < marked.size(); ++j)
+			{
+				gm.setEdge(i, j, g.getEdge(marked[i], marked[j]));
+			}
+		}
+
+		// Find embeddings of marked subgraphs into T
+		for (const auto& t : ts)
+		{
+			// Construct overlaps from embedding
+			auto embeddings = embed(gm, t);
+			for (const auto& emb : embeddings)
+			{
+				auto overlap = overlap_base;
+
+				// Map vertices of t into new overlap graph
+				std::vector<int> map_t_to_overlap(t.num_vertices, -1);
+
+				// Start with marked vertices (overlapping in g and t)
+				for (auto vm_idx = 0; vm_idx < marked.size(); ++vm_idx)
+				{
+					Vertex vm_in_g = marked[vm_idx];
+					Vertex vm_in_t = emb[vm_idx];
+					map_t_to_overlap[vm_in_t] = vm_in_g;
+				}
+
+				// Assign non-marked vertices of t
+				auto next_v = 16;
+				for (auto vt = 0; vt < t.num_vertices; ++vt)
+				{
+					if (map_t_to_overlap[vt] == -1)
+					{
+						map_t_to_overlap[vt] = next_v;
+						++next_v;
+					}
+				}
+
+				// Fill in edge colors of overlap graph
+				for (auto i = 0; i < t.num_vertices; ++i)
+				{
+					for (auto j = i+1; j < t.num_vertices; ++j)
+					{
+						auto ec = t.getEdge(i, j);
+						overlap.setEdge(map_t_to_overlap[i], map_t_to_overlap[j], ec);
+					}
+				}
+				
+				// Add u and v of attaching set
+				overlap.addVertex();
+				overlap.addVertex();
+				Vertex u = overlap.num_vertices - 2;
+				Vertex v = overlap.num_vertices - 1;
+				for (auto i = 0; i < marked.size(); ++i)
+				{
+					overlap.setEdge(marked[i], u, 4);
+					overlap.setEdge(marked[i], v, 4);
+				}
+
+				// Canonize graph
+				auto canon = canonize(overlap);
+				if (!canons[marked.size()].contains(canon))
+				{
+					canons[marked.size()].insert(canon);
+					graphs.emplace_back(std::move(overlap));
+				}
+			}
+		}
+
+		std::printf("Finished g%d\n", progress++);
+	}
+
+	// Output number of embeddings
+	for (auto k = 1; k <= 16; ++k)
+	{
+		std::printf(
+			"Found %d embeddings for k=%d\n",
+			static_cast<int>(canons[k].size()),
+			k
+		);
+	}
+
+	// Save graphs
+	writeGraphsToFile("graphs/62/upsilon2.adj", graphs);
+}
+
+
 void prop2_2() noexcept
 {
 	auto upsilon2 = loadBulk("graphs/62/upsilon2.adj");
@@ -595,7 +555,7 @@ void prop2_2() noexcept
 }
 
 
-void prop3() noexcept
+std::unordered_map<int, std::unordered_map<int, EdgeColoredUndirectedGraph>> make_tperms() noexcept
 {
 	// Get all T_i(c), where T_i is one of the 2 good 3-colorings of K16
 	// and c E { 1, 2, 3 } is a color replaced by color 4
@@ -624,6 +584,13 @@ void prop3() noexcept
 		}
 	}
 
+	return t_perms;
+}
+
+
+void prop3() noexcept
+{
+	auto t_perms = make_tperms();
 	auto upsilon3 = loadBulk("graphs/62/upsilon3.adj");
 	std::vector<EdgeColoredUndirectedGraph> pullbacks;
 	for (const auto& g : upsilon3)
@@ -700,7 +667,7 @@ void prop3() noexcept
 			auto neighborhood = getNeighborhood(g, neighbors, v_extend, c);
 
 			// Embed
-       			std::vector<EdgeColoredUndirectedGraph> ts = { t_perms[1].at(c), t_perms[2].at(c) };
+			std::vector<EdgeColoredUndirectedGraph> ts = { t_perms[1].at(c), t_perms[2].at(c) };
 			for (const auto& t : ts)
 			{
 				auto embeddings = embed(neighborhood, t);
@@ -751,12 +718,72 @@ void prop3() noexcept
 	writeGraphsToFile("graphs/62/upsilon4.adj", graphs);
 }
 
+
+void prop4() noexcept
+{
+	auto t_perms = make_tperms();
+	auto upsilon4 = loadBulk("graphs/62/upsilon4.adj");
+
+	// Cull colorings that are not embeddable in two colors
+	std::vector<EdgeColoredUndirectedGraph> embeddable;
+	for (const auto& g : upsilon4)
+	{
+		// Find the attaching set of u and v
+		auto attach_u = g.num_vertices - 2;
+		auto attach_v = g.num_vertices - 1;
+		std::vector<Vertex> attaching_set;
+		for (auto v = 0; v < attach_u; ++v)
+		{
+			if (g.getEdge(attach_u, v) == 4 && g.getEdge(attach_v, v) == 4)
+			{
+				attaching_set.push_back(v);
+			}
+		}
+
+		// Check each vertex in attaching set for embeddability
+		bool is_good = true;
+		for (auto x : attaching_set)
+		{
+			auto num_embeddable_colors = 0;
+			for (auto c = 1; c <= 3; ++c)
+			{
+				std::vector<EdgeColoredUndirectedGraph> ts = { t_perms[1].at(c), t_perms[2].at(c) };
+				auto neighborhood = getNeighborhood(g, x, c);
+				for (const auto& t : ts)
+				{
+					if (canEmbed(neighborhood, t))
+					{
+						++num_embeddable_colors;
+						break;
+					}
+				}
+			}
+
+			if (num_embeddable_colors < 2)
+			{
+				is_good = false;
+				break;
+			}
+		}
+
+		if (is_good)
+		{
+			embeddable.push_back(g);
+		}
+	}
+
+	std::printf("%zu graphs are embeddable in two colors\n", embeddable.size());
+
+
+}
+
 int main(int argc, char** argv)
 {
-	prop1();
-	prop2_1();
-	prop2_2();
-	prop3();
+	// prop1();
+	// prop2_1();
+	// prop2_2();
+	// prop3();
+	prop4();
 	
 	return 0;
 }
