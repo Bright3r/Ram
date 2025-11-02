@@ -23,15 +23,18 @@ EdgeColoredUndirectedGraph::EdgeColoredUndirectedGraph(size_t num_vertices, Colo
 	}
 }
 
+
 size_t EdgeColoredUndirectedGraph::numEncodedVertices() const noexcept
 {
 	return num_vertices * num_layers;
 }
 
+
 size_t EdgeColoredUndirectedGraph::numWordsPerVertex() const noexcept
 {
 	return SETWORDSNEEDED(numEncodedVertices());
 }
+
 
 void EdgeColoredUndirectedGraph::addVertex() noexcept
 {
@@ -53,7 +56,8 @@ void EdgeColoredUndirectedGraph::addVertex() noexcept
 	createEncodingThreads(num_vertices-1);
 }
 
-void EdgeColoredUndirectedGraph::setEdge(size_t i, size_t j, Color color) noexcept
+
+void EdgeColoredUndirectedGraph::setEdge(Vertex i, Vertex j, Color color) noexcept
 {
 	assert(i >= 0 && i < num_vertices && j >= 0 && j < num_vertices 
 		&& "Invalid bounds on EdgeColoredGraph::setEdge()"
@@ -87,7 +91,8 @@ void EdgeColoredUndirectedGraph::setEdge(size_t i, size_t j, Color color) noexce
 	}
 }
 
-Color EdgeColoredUndirectedGraph::getEdge(size_t i, size_t j) const noexcept
+
+Color EdgeColoredUndirectedGraph::getEdge(Vertex i, Vertex j) const noexcept
 {
 	assert(i < num_vertices && j < num_vertices 
 		&& "Invalid bounds on EdgeColoredGraph::getEdge()"
@@ -109,91 +114,12 @@ Color EdgeColoredUndirectedGraph::getEdge(size_t i, size_t j) const noexcept
 	return c;
 }
 
-bool EdgeColoredUndirectedGraph::hasEdge(size_t i, size_t j) const noexcept
+
+bool EdgeColoredUndirectedGraph::hasEdge(Vertex i, Vertex j) const noexcept
 {
 	return getEdge(i, j) != 0;
 }
 
-bool EdgeColoredUndirectedGraph::isTriangleFree() noexcept
-{
-	for (auto i = 0; i < num_vertices; ++i)
-	{
-		for (auto j = i+1; j < num_vertices; ++j)
-		{
-			Color c0 = getEdge(i, j);
-			for (auto k = j+1; k < num_vertices; ++k)
-			{
-				Color c1 = getEdge(i, k);
-				Color c2 = getEdge(j, k);
-				if (c0 == 0 || c1 == 0 || c2 == 0) 
-				{
-					continue;
-				}
-
-				if (c0 == c1 && c0 == c2 && c1 == c2) 
-				{
-					return false;
-				}
-			}
-		}
-	}
-
-	return true;
-}
-
-bool EdgeColoredUndirectedGraph::isPartial() noexcept
-{
-	for (auto i = 0; i < num_vertices; ++i)
-	{
-		for (auto j = i+1; j < num_vertices; ++j)
-		{
-			Color c0 = getEdge(i, j);
-			for (auto k = j+1; k < num_vertices; ++k)
-			{
-				Color c1 = getEdge(i, k);
-				Color c2 = getEdge(j, k);
-				if (c0 == 0 || c1 == 0 || c2 == 0) 
-				{
-					return true;
-				}
-			}
-		}
-	}
-
-	return false;
-}
-
-std::vector<EdgeColoredUndirectedGraph> 
-EdgeColoredUndirectedGraph::getColorPermutations(int max_color) const noexcept
-{
-	if (max_color < 0) max_color = this->max_color;
-	std::vector<Color> colors(max_color, 0);
-	std::iota(colors.begin(), colors.end(), 1);
-
-	std::vector<EdgeColoredUndirectedGraph> res;
-	do
-	{
-		EdgeColoredUndirectedGraph g(num_vertices, this->max_color);
-		for (auto i = 0; i < num_vertices; ++i)
-		{
-			for (auto j = i+1; j < num_vertices; ++j)
-			{
-				Color ec = getEdge(i, j);
-				if (ec == 0) continue;
-
-				// Use encoded color value as index into color permutation
-				Color mapped_color = (ec > max_color) 
-					? ec 
-					: colors[ec-1];
-
-				g.setEdge(i, j, mapped_color);
-			}
-		}
-		res.push_back(g);
-	} while (std::next_permutation(colors.begin(), colors.end()));
-
-	return res;
-}
 
 std::string EdgeColoredUndirectedGraph::header_string() const noexcept
 {
@@ -204,6 +130,7 @@ std::string EdgeColoredUndirectedGraph::header_string() const noexcept
 
 	return ss.str();
 }
+
 
 std::string EdgeColoredUndirectedGraph::to_string() const noexcept
 {
@@ -219,21 +146,6 @@ std::string EdgeColoredUndirectedGraph::to_string() const noexcept
 	return ss.str();
 }
 
-EdgeColoredUndirectedGraph::NautyGraph EdgeColoredUndirectedGraph::nautify() const noexcept
-{
-	NautyGraph g(numEncodedVertices()*numWordsPerVertex());
-	EMPTYGRAPH(g.data(), numEncodedVertices(), numWordsPerVertex());
-
-	for (auto i = 0; i < numEncodedVertices(); ++i)
-	{
-		for (auto j = i+1; j < numEncodedVertices(); ++j)
-		{
-			if (graph[i][j]) ADDONEEDGE(g.data(), i, j, numWordsPerVertex());
-		}
-	}
-
-	return g;
-}
 
 size_t EdgeColoredUndirectedGraph::numLayersForMaxColor(Color max_color) const noexcept
 {
@@ -247,7 +159,8 @@ size_t EdgeColoredUndirectedGraph::numLayersForMaxColor(Color max_color) const n
 	return num_layers;
 }
 
-void EdgeColoredUndirectedGraph::createEncodingThreads(size_t v) noexcept
+
+void EdgeColoredUndirectedGraph::createEncodingThreads(Vertex v) noexcept
 {
 	auto v_base = v * num_layers;
 	for (auto l0 = 0; l0 < num_layers; ++l0)

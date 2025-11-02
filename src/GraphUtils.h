@@ -16,8 +16,20 @@ std::string getCanonString(graph* cg, int n, int m) noexcept;
 
 std::string canonize(const Ram::EdgeColoredUndirectedGraph& g) noexcept;
 
+
 // Colorings
 std::vector<std::vector<Ram::Color>> generateAllColorings(size_t e, size_t k);
+
+bool isTriangleFree(const Ram::EdgeColoredUndirectedGraph& g) noexcept;
+
+bool isPartial(const Ram::EdgeColoredUndirectedGraph& g) noexcept;
+
+std::vector<Ram::EdgeColoredUndirectedGraph> 
+getColorPermutations(const Ram::EdgeColoredUndirectedGraph& g, int max_color = -1) noexcept;
+
+Ram::EdgeColoredUndirectedGraph::NautyGraph 
+nautify(const Ram::EdgeColoredUndirectedGraph& g) noexcept;
+
 
 // IO
 void writeGraphsToFile(

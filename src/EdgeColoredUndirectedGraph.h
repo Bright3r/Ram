@@ -1,18 +1,19 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <ctime>
 #include <vector>
 #include <cassert>
 #include <string>
-#include <filesystem>
 
 #include "nauty.h"
 
 namespace Ram {
 
 using Color = uint8_t;
+using Vertex = uint64_t;
 
 namespace Timing 
 {
@@ -28,10 +29,10 @@ struct ColoringGenerator
 
 	std::vector<Color> coloring;
 
-	ColoringGenerator(size_t e, size_t k)
-		: num_edges(e)
-		, num_colors(k)
-		, coloring(e, 1)
+	ColoringGenerator(size_t num_edges, size_t num_colors)
+		: num_edges(num_edges)
+		, num_colors(num_colors)
+		, coloring(num_edges, 1)
 	{ }
 
 	bool next(std::vector<Color>& out)
@@ -73,29 +74,20 @@ struct EdgeColoredUndirectedGraph
 
 	void addVertex() noexcept;
 
-	void setEdge(size_t i, size_t j, Color color) noexcept;
+	void setEdge(Vertex i, Vertex j, Color color) noexcept;
 
-	Color getEdge(size_t i, size_t j) const noexcept;
+	Color getEdge(Vertex i, Vertex j) const noexcept;
 
-	bool hasEdge(size_t i, size_t j) const noexcept;
-
-	bool isTriangleFree() noexcept;
-
-	bool isPartial() noexcept;
-
-	std::vector<EdgeColoredUndirectedGraph> 
-	getColorPermutations(int max_color = -1) const noexcept;
+	bool hasEdge(Vertex i, Vertex j) const noexcept;
 
 	std::string header_string() const noexcept;
 
 	std::string to_string() const noexcept;
 
-	NautyGraph nautify() const noexcept;
-
 private:
 	size_t numLayersForMaxColor(Color max_color) const noexcept;
 
-	void createEncodingThreads(size_t v) noexcept;
+	void createEncodingThreads(Vertex v) noexcept;
 };
 
 };	// end of namespace

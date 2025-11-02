@@ -1,6 +1,5 @@
 #include <chrono>
 #include <cstdio>
-#include <ctime>
 #include <vector>
 #include <cassert>
 #include <sstream>
@@ -24,13 +23,13 @@ void processRepresentative(
 	rep_plus_one.addVertex();
 
 	// Go through all new edge colors for new vertex
-	for (size_t c = 0; c < colorings.size(); ++c)
+	for (Color c = 0; c < colorings.size(); ++c)
 	{
 		const auto& curr_coloring = colorings[c];
 
 		// Apply edge coloring
 		auto g = rep_plus_one;
-		size_t new_vertex = rep_plus_one.num_vertices - 1;
+		auto new_vertex = rep_plus_one.num_vertices - 1;
 		for (auto i = 0; i < new_vertex; ++i)
 		{
 			g.setEdge(new_vertex, i, curr_coloring[i]);
@@ -38,7 +37,7 @@ void processRepresentative(
 
 		// Check if triangle was added
 		bool has_tri = false;
-		size_t tri_maker_idx = 0;
+		auto tri_maker_idx = 0;
 		for (auto i = 0; i < new_vertex; ++i)
 		{
 			for (auto j = i+1; j < new_vertex; ++j)
@@ -61,7 +60,7 @@ void processRepresentative(
 		if (has_tri)
 		{
 			// Find next coloring that breaks current triangle
-			size_t new_c = c;
+			Color new_c = c;
 			Color tri_color = curr_coloring[tri_maker_idx];
 			while (new_c < colorings.size() && 
 				colorings[new_c][tri_maker_idx] == tri_color)

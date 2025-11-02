@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_set>
 
-#define MAXN (32*4)
+#define MAXN (62*4)
 #include "EdgeColoredUndirectedGraph.h"
 #include "GraphUtils.h"
 
@@ -127,7 +127,7 @@ void prop1() noexcept
 }
 
 
-void prop2() noexcept
+void prop2_1() noexcept
 {
 	auto upsilon1 = loadBulk("graphs/62/upsilon1.adj");
 	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
@@ -138,7 +138,7 @@ void prop2() noexcept
 	for (const auto& g : upsilon1)
 	{
 		// Get marked vertices of the graph
-		std::unordered_set<size_t> marked;
+		std::unordered_set<Vertex> marked;
 		for (auto v = 0; v < 16; ++v)
 		{
 			if (g.getEdge(v, 16) == 4)
@@ -146,7 +146,7 @@ void prop2() noexcept
 				marked.insert(v);
 			}
 		}
-		std::vector<size_t> marked_v(marked.begin(), marked.end());
+		std::vector<Vertex> marked_v(marked.begin(), marked.end());
 		auto k = marked_v.size();
 
 		for (const auto& t : ts)
@@ -200,7 +200,6 @@ void prop2() noexcept
 					overlap.addVertex();
 					auto u_attach = overlap.num_vertices - 2;
 					auto v_attach = overlap.num_vertices - 1;
-					overlap.setEdge(u_attach, v_attach, 4);
 
 					// Copy marked vertices of g into overlap
 					for (auto vm_g : marked_v)
@@ -289,16 +288,18 @@ void prop2() noexcept
 }
 
 
-std::vector<EdgeColoredUndirectedGraph> embed(
+using Embedding = std::vector<int>;
+
+std::vector<Embedding> embed(
 	const EdgeColoredUndirectedGraph& subgraph,
 	const EdgeColoredUndirectedGraph& graph) noexcept
 {
-	std::vector<EdgeColoredUndirectedGraph> embeddings;
+	std::vector<Embedding> embeddings;
 
 	// Cannot embed subgraph into smaller graph
 	if (subgraph.num_vertices > graph.num_vertices) return embeddings;
 
-	std::vector<int> map_sub_to_main(subgraph.num_vertices, -1);
+	Embedding map_sub_to_main(subgraph.num_vertices, -1);
 	std::vector<bool> used_main(graph.num_vertices, false);
 	std::function<void(int)> VF2_dfs = [&](int depth)
 	{
@@ -323,7 +324,7 @@ std::vector<EdgeColoredUndirectedGraph> embed(
 				}
 			}
 
-			embeddings.emplace_back(std::move(overlap));
+			embeddings.emplace_back(map_sub_to_main);
 			return;
 		}
 
@@ -367,6 +368,7 @@ std::vector<EdgeColoredUndirectedGraph> embed(
 	return embeddings;
 };
 
+
 bool canEmbed(
 	const EdgeColoredUndirectedGraph& subgraph,
 	const EdgeColoredUndirectedGraph& graph) noexcept
@@ -374,7 +376,7 @@ bool canEmbed(
 	// Cannot embed subgraph into smaller graph
 	if (subgraph.num_vertices > graph.num_vertices) return false;
 
-	std::vector<int> map_sub_to_main(subgraph.num_vertices, -1);
+	Embedding map_sub_to_main(subgraph.num_vertices, -1);
 	std::vector<bool> used_main(graph.num_vertices, false);
 	std::function<bool(int)> VF2_dfs = [&](int depth)
 	{
@@ -427,7 +429,67 @@ bool canEmbed(
 };
 
 
-void prop3() noexcept
+// Get neighbood of v in color c
+EdgeColoredUndirectedGraph getNeighborhood(
+	const EdgeColoredUndirectedGraph& g,
+	Vertex v,
+	Color c) noexcept
+{
+	std::vector<Vertex> neighbors;
+	for (auto u = 0; u < g.num_vertices; ++u)
+	{
+		if (u == v) continue;
+		if (g.getEdge(u, v) == c)
+		{
+			neighbors.push_back(u);
+		}
+	}
+
+	EdgeColoredUndirectedGraph neighborhood(neighbors.size(), g.max_color);
+	for (auto i = 0; i < neighbors.size(); ++i)
+	{
+		for (auto j = i+1; j < neighbors.size(); ++j)
+		{
+			auto ec = g.getEdge(neighbors[i], neighbors[j]);
+			neighborhood.setEdge(i, j, ec);
+		}
+	}
+
+	return neighborhood;
+}
+
+
+// Get neighbood of v in color c
+EdgeColoredUndirectedGraph getNeighborhood(
+	const EdgeColoredUndirectedGraph& g,
+	std::vector<Vertex>& neighbors,
+	Vertex v,
+	Color c) noexcept
+{
+	for (auto u = 0; u < g.num_vertices; ++u)
+	{
+		if (u == v) continue;
+		if (g.getEdge(u, v) == c)
+		{
+			neighbors.push_back(u);
+		}
+	}
+
+	EdgeColoredUndirectedGraph neighborhood(neighbors.size(), g.max_color);
+	for (auto i = 0; i < neighbors.size(); ++i)
+	{
+		for (auto j = i+1; j < neighbors.size(); ++j)
+		{
+			auto ec = g.getEdge(neighbors[i], neighbors[j]);
+			neighborhood.setEdge(i, j, ec);
+		}
+	}
+
+	return neighborhood;
+}
+
+
+void prop2_2() noexcept
 {
 	auto upsilon2 = loadBulk("graphs/62/upsilon2.adj");
 	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
@@ -446,7 +508,7 @@ void prop3() noexcept
 		// Find the attaching set of u and v
 		auto attach_u = g.num_vertices - 2;
 		auto attach_v = g.num_vertices - 1;
-		std::vector<size_t> attaching_set;
+		std::vector<Vertex> attaching_set;
 		for (auto v = 0; v < attach_u; ++v)
 		{
 			if (g.getEdge(attach_u, v) == 4 && g.getEdge(attach_v, v) == 4)
@@ -463,32 +525,14 @@ void prop3() noexcept
 			int num_embeddable_neighborhoods = 0;
 			for (Color c = 1; c <= 3; ++c)
 			{
-				// Get neighbood of u in color c
-				std::vector<size_t> neighbors;
-				for (auto v = 0; v < attach_u; ++v)
-				{
-					if (v == u) continue;
-					if (g.getEdge(u, v) == c)
-					{
-						neighbors.push_back(v);
-					}
-				}
-
-				EdgeColoredUndirectedGraph neighborhood(neighbors.size(), 3);
-				for (auto i = 0; i < neighbors.size(); ++i)
-				{
-					for (auto j = i+1; j < neighbors.size(); ++j)
-					{
-						auto ec = g.getEdge(neighbors[i], neighbors[j]);
-						neighborhood.setEdge(i, j, ec);
-					}
-				}
+				// // Get neighbood of u in color c
+				auto neighborhood = getNeighborhood(g, u, c);
 
 				// Check if neighborhood is embeddable into a good k16
 				for (const auto& t : ts)
 				{
 					bool has_embedding = false;
-					for (const auto& weak_n : neighborhood.getColorPermutations())
+					for (const auto& weak_n : getColorPermutations(neighborhood))
 					{
 						if (canEmbed(weak_n, t))
 						{
@@ -505,7 +549,7 @@ void prop3() noexcept
 				}
 			}
 
-			std::printf("  u=%zu, embeddable=%d\n", u, num_embeddable_neighborhoods);
+			// Reject coloring
 			if (num_embeddable_neighborhoods < 2)
 			{
 				is_embeddable = false;
@@ -550,32 +594,170 @@ void prop3() noexcept
 	writeGraphsToFile("graphs/62/upsilon3.adj", graphs);
 }
 
+
+void prop3() noexcept
+{
+	// Get all T_i(c), where T_i is one of the 2 good 3-colorings of K16
+	// and c E { 1, 2, 3 } is a color replaced by color 4
+	std::unordered_map<int, std::unordered_map<int, EdgeColoredUndirectedGraph>> t_perms;
+	auto t1 = make_T1();
+	auto t2 = make_T2();
+	for (auto c = 1; c <= 3; ++c)
+	{
+		for (auto t_idx = 1; t_idx <= 2; ++t_idx)
+		{
+			EdgeColoredUndirectedGraph tperm = t1;
+			if (t_idx == 2) tperm = t2;
+
+			for (auto i = 0; i < tperm.num_vertices; ++i)
+			{
+				for (auto j = i+1; j < tperm.num_vertices; ++j)
+				{
+					if (tperm.getEdge(i, j) == c)
+					{
+						tperm.setEdge(i, j, 4);
+					}
+				}
+			}
+
+			t_perms[t_idx].emplace(c, std::move(tperm));
+		}
+	}
+
+	auto upsilon3 = loadBulk("graphs/62/upsilon3.adj");
+	std::vector<EdgeColoredUndirectedGraph> pullbacks;
+	for (const auto& g : upsilon3)
+	{
+		// Build attaching set
+		auto attach_u = g.num_vertices - 2;
+		auto attach_v = g.num_vertices - 1;
+		std::vector<Vertex> attaching_set;
+		for (auto v = 0; v < attach_u; ++v)
+		{
+			if (g.getEdge(attach_u, v) == 4 && g.getEdge(attach_v, v) == 4)
+			{
+				attaching_set.push_back(v);
+			}
+		}
+
+		bool is_good = true;
+		for (auto x : attaching_set)
+		{
+			int num_embeddable_neighborhoods = 0;
+			for (auto c = 1; c <= 3; ++c)
+			{
+				// Build neighborhood
+				auto neighborhood = getNeighborhood(g, x, c);
+				if (canEmbed(neighborhood, t_perms[1].at(c)) ||
+					canEmbed(neighborhood, t_perms[2].at(c)))
+				{
+					++num_embeddable_neighborhoods;
+				}
+			}
+
+			if (num_embeddable_neighborhoods < 2)
+			{
+				is_good = false;
+				break;
+			}
+		}
+
+		if (is_good)
+		{
+			pullbacks.push_back(g);
+		}
+	}
+
+	std::printf("%zu pullbacks found\n", pullbacks.size());
+
+
+	// Pull back graphs
+	std::vector<EdgeColoredUndirectedGraph> graphs;
+	std::unordered_set<std::string> canons;
+	std::vector<int> attaching_orders(17, 0);
+	int progress = 0;
+	for (const auto& g : pullbacks)
+	{
+		// Get first vertex of attaching set
+		auto attach_u = g.num_vertices - 2;
+		auto attach_v = g.num_vertices - 1;
+		std::vector<Vertex> attaching_set;
+		for (auto v = 0; v < attach_u; ++v)
+		{
+			if (g.getEdge(attach_u, v) == 4 && g.getEdge(attach_v, v) == 4)
+			{
+				attaching_set.push_back(v);
+			}
+		}
+		Vertex v_extend = attaching_set[0];
+
+		
+		// Get embeddings of neighborhoods into T1(c) and T2(c)
+		for (auto c = 1; c <= 3; ++c)
+		{
+			// Build neighborhood
+			std::vector<Vertex> neighbors;
+			auto neighborhood = getNeighborhood(g, neighbors, v_extend, c);
+
+			// Embed
+       			std::vector<EdgeColoredUndirectedGraph> ts = { t_perms[1].at(c), t_perms[2].at(c) };
+			for (const auto& t : ts)
+			{
+				auto embeddings = embed(neighborhood, t);
+				for (const auto& emb : embeddings)
+				{
+					// Pull back embedding
+					auto partial = g;
+					for (auto i = 0; i < neighbors.size(); ++i)
+					{
+						auto u = neighbors[i];
+						for (auto j = i+1; j < neighbors.size(); ++j)
+						{
+							auto v = neighbors[j];
+							if (!partial.hasEdge(u, v))
+							{
+								auto ec = t.getEdge(emb[i], emb[j]);
+								partial.setEdge(u, v, ec);
+							}
+						}
+					}
+
+					// Check if triangle-free
+					if (!isTriangleFree(partial)) continue;
+
+					// Check if non-isomorhpic
+					auto canon = canonize(partial);
+					if (!canons.contains(canon))
+					{
+						canons.insert(canon);
+						graphs.emplace_back(std::move(partial));
+						attaching_orders[attaching_set.size()]++;
+					}
+				}
+			}
+		}
+
+		std::printf("Finished g%d\n", ++progress);
+	}
+
+
+	for (auto i = 0; i < attaching_orders.size(); ++i)
+	{
+		std::printf("Attaching Set Order %d: %d\n", i, attaching_orders[i]);
+	}
+	std::printf("Found %zu partial colorings extended by one vertex\n", canons.size());
+
+	// Save to file
+	writeGraphsToFile("graphs/62/upsilon4.adj", graphs);
+}
+
 int main(int argc, char** argv)
 {
-	// prop1();
-	// prop2();
+	prop1();
+	prop2_1();
+	prop2_2();
 	prop3();
 	
-
-	// auto t = make_T1();
-	// auto sub_sz = 4;
-	// for (auto start = 0; start <= t.num_vertices-sub_sz; ++start)
-	// {
-	// 	EdgeColoredUndirectedGraph g(sub_sz, 3);
-	// 	for (auto i = 0; i < sub_sz; ++i)
-	// 	{
-	// 		for (auto j = i+1; j < sub_sz; ++j)
-	// 		{
-	// 			auto c = t.getEdge(start+i, start+j);
-	// 			if (c != 3) continue;
-	// 			g.setEdge(i, j, c);
-	// 		}
-	// 	}
-	//
-	// 	auto res = embed(g, t);
-	// 	std::printf("Start=%d: %zu embeddings\n", start, res.size());
-	// }
-
 	return 0;
 }
 
