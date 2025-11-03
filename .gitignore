@@ -21,6 +21,7 @@ Debug/
 Release/
 vendor/
 graphs/
+cnfs/
 
 # Precompiled Headers
 *.gch

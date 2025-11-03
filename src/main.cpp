@@ -1,7 +1,9 @@
 #include <functional>
 #include <numeric>
+#include <sstream>
 #include <string>
 #include <unordered_set>
+#include <fstream>
 
 #define MAXN (62*4)
 #include "EdgeColoredUndirectedGraph.h"
@@ -773,8 +775,124 @@ void prop4() noexcept
 	}
 
 	std::printf("%zu graphs are embeddable in two colors\n", embeddable.size());
+}
 
 
+using CNF = std::vector<std::string>;
+CNF getCNF(const EdgeColoredUndirectedGraph& g, bool add_colors = false) noexcept
+{
+	// Map edges to a variable
+	// Indexed by (Vertex1, Vertex2, Color)
+	std::vector<std::vector<std::vector<int>>> edge_to_var(
+		g.num_vertices,
+		std::vector<std::vector<int>>(g.num_vertices,
+			std::vector<int>(g.max_color + 1, 0)
+		)
+	);
+
+	int var = 1;
+	for (auto i = 0; i < g.num_vertices; ++i)
+	{
+		for (auto j = i+1; j < g.num_vertices; ++j)
+		{
+			for (auto c = 1; c <= g.max_color; ++c)
+			{
+				edge_to_var[i][j][c] = var;
+				edge_to_var[j][i][c] = var;
+				++var;
+			}
+		}
+	}
+
+
+	// Each edge of one and only one color
+	CNF cnf;
+	for (auto i = 0; i < g.num_vertices; ++i)
+	{
+		for (auto j = i+1; j < g.num_vertices; ++j)
+		{
+			// Write color clause for current color
+			for (auto c_curr = 1; c_curr <= g.max_color; ++c_curr)
+			{
+				// Edge must be at least one color
+				std::stringstream clause;
+				for (auto c = 1; c <= g.max_color; ++c)
+				{
+					clause << edge_to_var[i][j][c] << " ";
+				}
+				clause << "0";
+				cnf.emplace_back(clause.str());
+
+				// Edge must be at most one color
+				for (auto c1 = 1; c1 <= g.max_color; ++c1)
+				{
+					for (auto c2 = c1+1; c2 <= g.max_color; ++c2)
+					{
+						clause = std::stringstream();
+						clause << "-" << edge_to_var[i][j][c1] << " ";
+						clause << "-" << edge_to_var[i][j][c2] << " ";
+						clause << "0";
+						cnf.emplace_back(clause.str());
+					}
+				}
+			}
+		}
+	}
+	
+
+	// No monochromatic triangle
+	for (auto i = 0; i < g.num_vertices; ++i)
+	{
+		for (auto j = i+1; j < g.num_vertices; ++j)
+		{
+			for (auto k = j+1; k < g.num_vertices; ++k)
+			{
+				for (auto c = 1; c <= g.max_color; ++c)
+				{
+					auto ec1 = edge_to_var[i][j][c];
+					auto ec2 = edge_to_var[i][k][c];
+					auto ec3 = edge_to_var[j][k][c];
+					
+					std::stringstream clause;
+					clause << "-" << ec1 << " ";
+					clause << "-" << ec2 << " ";
+					clause << "-" << ec3 << " ";
+					clause << "0";
+					cnf.emplace_back(clause.str());
+				}
+			}
+		}
+	}
+
+
+	// Add graph's coloring
+	if (add_colors)
+	{
+		for (auto i = 0; i < g.num_vertices; ++i)
+		{
+			for (auto j = i+1; j < g.num_vertices; ++j)
+			{
+				if (!g.hasEdge(i, j)) continue;
+
+				auto ec = g.getEdge(i, j);
+				auto var = edge_to_var[i][j][ec];
+
+				std::stringstream clause;
+				clause << var << " 0";
+				cnf.emplace_back(clause.str());
+			}
+		}
+	}
+	
+
+	// Write header to start
+	std::stringstream header;
+	auto max_var = var - 1;
+	auto num_clauses = cnf.size();
+	header << "p cnf " << max_var << " " << num_clauses;
+	cnf.insert(cnf.begin(), header.str());
+
+	return cnf;
 }
 
 int main(int argc, char** argv)
@@ -783,7 +901,20 @@ int main(int argc, char** argv)
 	// prop2_1();
 	// prop2_2();
 	// prop3();
-	prop4();
+	// prop4();
+	
+	auto t1 = make_T1();
+	std::printf("Is Triangle-Free = %b\n", isTriangleFree(t1));
+
+	t1.setEdge(0, 1, 3);
+	std::printf("Is Triangle-Free = %b\n", isTriangleFree(t1));
+
+	auto cnf = getCNF(t1, false);
+	std::ofstream of("cnfs/t1.cnf");
+	for (const auto& str : cnf)
+	{
+		of << str << "\n";
+	}
 	
 	return 0;
 }
