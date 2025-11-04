@@ -8,6 +8,7 @@ add_executable(main
 	src/main.cpp
 	src/EdgeColoredUndirectedGraph.cpp
 	src/GraphUtils.cpp
+	src/Utils.cpp
 	src/CanonicalAugmentation.cpp
 )
 
