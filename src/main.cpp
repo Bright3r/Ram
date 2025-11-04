@@ -1,9 +1,12 @@
+#include <filesystem>
 #include <functional>
+#include <memory>
 #include <numeric>
 #include <sstream>
 #include <string>
 #include <unordered_set>
 #include <fstream>
+#include "cadical.hpp"
 
 #define MAXN (62*4)
 #include "EdgeColoredUndirectedGraph.h"
@@ -895,6 +898,121 @@ CNF getCNF(const EdgeColoredUndirectedGraph& g, bool add_colors = false) noexcep
 	return cnf;
 }
 
+
+void writeCNF(const CNF& cnf, std::filesystem::path file_path)
+{
+	std::ofstream of(file_path);
+	for (const auto& str : cnf)
+	{
+		of << str << "\n";
+	}
+}
+
+
+std::unique_ptr<CaDiCaL::Solver> getCNFSolver(
+	const EdgeColoredUndirectedGraph& g,
+	bool add_colors = false) noexcept
+{
+	// Map edges to a variable
+	// Indexed by (Vertex1, Vertex2, Color)
+	std::vector<std::vector<std::vector<int>>> edge_to_var(
+		g.num_vertices,
+		std::vector<std::vector<int>>(g.num_vertices,
+			std::vector<int>(g.max_color + 1, 0)
+		)
+	);
+
+	int var = 1;
+	for (auto i = 0; i < g.num_vertices; ++i)
+	{
+		for (auto j = i+1; j < g.num_vertices; ++j)
+		{
+			for (auto c = 1; c <= g.max_color; ++c)
+			{
+				edge_to_var[i][j][c] = var;
+				edge_to_var[j][i][c] = var;
+				++var;
+			}
+		}
+	}
+
+
+	// Each edge of one and only one color
+	auto solver = std::make_unique<CaDiCaL::Solver>();
+	for (auto i = 0; i < g.num_vertices; ++i)
+	{
+		for (auto j = i+1; j < g.num_vertices; ++j)
+		{
+			// Write color clause for current color
+			for (auto c_curr = 1; c_curr <= g.max_color; ++c_curr)
+			{
+				// Edge must be at least one color
+				std::stringstream clause;
+				for (auto c = 1; c <= g.max_color; ++c)
+				{
+					solver->add(edge_to_var[i][j][c]);
+				}
+				solver->add(0);
+
+				// Edge must be at most one color
+				for (auto c1 = 1; c1 <= g.max_color; ++c1)
+				{
+					for (auto c2 = c1+1; c2 <= g.max_color; ++c2)
+					{
+						solver->add(-edge_to_var[i][j][c1]);
+						solver->add(-edge_to_var[i][j][c2]);
+						solver->add(0);
+					}
+				}
+			}
+		}
+	}
+	
+
+	// No monochromatic triangle
+	for (auto i = 0; i < g.num_vertices; ++i)
+	{
+		for (auto j = i+1; j < g.num_vertices; ++j)
+		{
+			for (auto k = j+1; k < g.num_vertices; ++k)
+			{
+				for (auto c = 1; c <= g.max_color; ++c)
+				{
+					auto ec1 = edge_to_var[i][j][c];
+					auto ec2 = edge_to_var[i][k][c];
+					auto ec3 = edge_to_var[j][k][c];
+					
+					solver->add(-ec1);
+					solver->add(-ec2);
+					solver->add(-ec3);
+					solver->add(0);
+				}
+			}
+		}
+	}
+
+
+	// Add graph's coloring
+	if (add_colors)
+	{
+		for (auto i = 0; i < g.num_vertices; ++i)
+		{
+			for (auto j = i+1; j < g.num_vertices; ++j)
+			{
+				if (!g.hasEdge(i, j)) continue;
+
+				auto ec = g.getEdge(i, j);
+				auto var = edge_to_var[i][j][ec];
+
+				solver->add(var);
+				solver->add(0);
+			}
+		}
+	}
+	
+	return solver;
+}
+
 int main(int argc, char** argv)
 {
 	// prop1();
@@ -903,19 +1021,21 @@ int main(int argc, char** argv)
 	// prop3();
 	// prop4();
 	
-	auto t1 = make_T1();
-	std::printf("Is Triangle-Free = %b\n", isTriangleFree(t1));
-
-	t1.setEdge(0, 1, 3);
-	std::printf("Is Triangle-Free = %b\n", isTriangleFree(t1));
-
-	auto cnf = getCNF(t1, false);
-	std::ofstream of("cnfs/t1.cnf");
-	for (const auto& str : cnf)
-	{
-		of << str << "\n";
-	}
+	// auto gs = loadBulk("graphs/62/upsilon4.adj");
+	// auto cnf = getCNF(gs[0], true);
+	// writeCNF(cnf, "cnfs/g0.cnf");
 	
+	auto t1 = make_T1();
+
+	auto solver = getCNFSolver(t1, true);
+	auto res = solver->solve();
+	std::printf("Satisfiable=%b\n", res == CaDiCaL::Status::SATISFIABLE);
+	
+	t1.setEdge(0, 1, 3);
+	solver = getCNFSolver(t1, true);
+	res = solver->solve();
+	std::printf("Satisfiable=%b\n", res == CaDiCaL::Status::SATISFIABLE);
+
 	return 0;
 }
 

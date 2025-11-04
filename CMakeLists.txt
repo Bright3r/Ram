@@ -15,10 +15,11 @@ target_include_directories(
 	main PRIVATE
 	${CMAKE_SOURCE_DIR}/src
 	${CMAKE_SOURCE_DIR}/vendor/nauty2_9_1
+	${CMAKE_SOURCE_DIR}/vendor/cadical/src
 )
 
 target_link_libraries(
 	main PRIVATE
 	${CMAKE_SOURCE_DIR}/vendor/nauty2_9_1/nauty.a
-	# ${CMAKE_SOURCE_DIR}/vendor/nauty2_9_1/nautyL1.a
+	${CMAKE_SOURCE_DIR}/vendor/cadical/build/libcadical.a
 )
