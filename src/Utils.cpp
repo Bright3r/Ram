@@ -58,4 +58,15 @@ std::vector<std::vector<int>> choose(int n, int k) noexcept
 	return res;
 }
 
+uint64_t numBitsInBinary(uint64_t num) noexcept
+{
+	size_t num_bits = 0;
+	while (num > 0)
+	{
+		++num_bits;
+		num >>= 1;
+	}
+	return num_bits;
+}
+
 };	// end of namespace

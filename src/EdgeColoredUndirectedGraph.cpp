@@ -1,6 +1,6 @@
 #include "EdgeColoredUndirectedGraph.h"
+#include "Utils.h"
 
-#include <numeric>
 #include <sstream>
 
 namespace Ram {
@@ -150,13 +150,7 @@ std::string EdgeColoredUndirectedGraph::to_string() const noexcept
 size_t EdgeColoredUndirectedGraph::numLayersForMaxColor(Color max_color) const noexcept
 {
 	// Get the number of bits used for the binary representation of max_color
-	size_t num_layers = 0;
-	while (max_color > 0)
-	{
-		++num_layers;
-		max_color >>= 1;
-	}
-	return num_layers;
+	return numBitsInBinary(max_color);
 }
 
 

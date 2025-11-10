@@ -1,6 +1,8 @@
 #include "GraphUtils.h"
 #include "EdgeColoredUndirectedGraph.h"
+#include "Utils.h"
 
+#include <cstdint>
 #include <fstream>
 #include <chrono>
 #include <functional>
@@ -526,11 +528,12 @@ CNF getCNF(const EdgeColoredUndirectedGraph& g, bool add_colors) noexcept
 
 std::unique_ptr<CaDiCaL::Solver> getCNFSolver(
 	const EdgeColoredUndirectedGraph& g,
+	std::vector<std::vector<std::vector<int>>>& edge_to_var,
 	bool add_colors) noexcept
 {
 	// Map edges to a variable
 	// Indexed by (Vertex1, Vertex2, Color)
-	std::vector<std::vector<std::vector<int>>> edge_to_var(
+	edge_to_var = std::vector<std::vector<std::vector<int>>>(
 		g.num_vertices,
 		std::vector<std::vector<int>>(g.num_vertices,
 			std::vector<int>(g.max_color + 1, 0)
@@ -666,9 +669,9 @@ void writeCNFToFile(std::filesystem::path file_path, const CNF& cnf)
 }
 
 
-std::vector<EdgeColoredUndirectedGraph> loadBulk(std::filesystem::path filename)
+std::vector<EdgeColoredUndirectedGraph> loadBulk(std::filesystem::path file_path)
 {
-	std::ifstream file(filename);
+	std::ifstream file(file_path);
 	assert(file.is_open() && "load_bulk() Failed: file not found.");
 
 	std::vector<EdgeColoredUndirectedGraph> res;
@@ -723,6 +726,120 @@ std::vector<EdgeColoredUndirectedGraph> loadBulk(std::filesystem::path filename)
 	return res;
 }
 
+uint64_t readMCGraphSize(const std::string& mc) noexcept
+{
+	constexpr uint8_t EXTEND_GSIZE = 126;
+
+	auto byte0 = mc[0] - 63;
+	auto byte1 = mc[1] - 63;
+
+	auto start_graph_size = 0;
+	auto end_graph_size = 0;
+	if (byte0 == EXTEND_GSIZE && byte1 == EXTEND_GSIZE)
+	{
+		start_graph_size = 2;
+		end_graph_size = 8;
+	}
+	else if (byte0 == EXTEND_GSIZE)
+	{
+		start_graph_size = 1;
+		end_graph_size = 4;
+	}
+
+	uint64_t graph_size { 0 };
+	auto shift_pos = 0;
+	for (auto i = end_graph_size; i <= start_graph_size; ++i)
+	{
+		// Get 6-bit byte value
+		uint64_t byte = (mc[i] - 63);
+		
+		// Shift byte into position of binary representation
+		byte <<= shift_pos;
+		shift_pos += 6;
+
+		// OR byte into graph size
+		graph_size |= byte;
+	}
+
+	return graph_size;
+}
+
+int readMCColors(const std::string& mc, uint64_t graph_size) noexcept
+{
+	auto byte_idx = 1;
+	if (graph_size > 62) byte_idx = 5;
+	if (graph_size > 258047) byte_idx = 9;
+
+	int num_colors = mc[byte_idx] - 63;
+	return num_colors;
+}
+
+EdgeColoredUndirectedGraph readMC(const std::string& mc) noexcept
+{
+	auto graph_size = readMCGraphSize(mc);
+	auto max_color = readMCColors(mc, graph_size);
+	auto color_bits = numBitsInBinary(max_color);
+	EdgeColoredUndirectedGraph g(graph_size, max_color);
+
+	// Get starting byte of adjacency matrix
+	auto byte_idx = 2;
+	if (graph_size > 62) byte_idx = 6;
+	if (graph_size > 258047) byte_idx = 10;
+
+	// Read rest of bytes into a vector of bits
+	std::vector<bool> bits;
+	for (auto i = byte_idx; i < mc.size(); ++i)
+	{
+		auto byte = mc[i] - 63;
+		for (auto j = 5; j >= 0; --j)
+		{
+			auto bit = (byte >> j) & 0x1;
+			bits.push_back(bit);
+		}
+	}
+
+	// Read bits as a list of colors
+	std::vector<Color> colors;
+	for (auto i = 0; i < bits.size();)
+	{
+		Color color { 0 };
+		for (auto b = 0; b < color_bits; ++b)
+		{
+			color <<= 1;
+			color |= bits[i];
+			++i;
+		}
+
+		colors.push_back(color);
+	}
+
+	// Read edges of graph from colors list
+	auto c_idx = 0;
+	for (auto j = 1; j < g.num_vertices; ++j)
+	{
+		for (auto i = 0; i < j; ++i)
+		{
+			g.setEdge(i, j, colors[c_idx]);
+			++c_idx;
+		}
+	}
+
+	return g;
+}
+
+std::vector<EdgeColoredUndirectedGraph> loadBulkMC(std::filesystem::path file_path)
+{
+	std::vector<EdgeColoredUndirectedGraph> graphs;
+
+	std::ifstream file(file_path);
+	std::string line;
+	while (std::getline(file, line))
+	{
+		graphs.emplace_back(readMC(line));
+	}
+	
+	return graphs;
+}
 
 };	// end of namespace
 

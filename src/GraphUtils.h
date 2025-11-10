@@ -65,6 +65,7 @@ CNF getCNF(const EdgeColoredUndirectedGraph& g, bool add_colors = false) noexcep
 
 std::unique_ptr<CaDiCaL::Solver> getCNFSolver(
 	const EdgeColoredUndirectedGraph& g,
+	std::vector<std::vector<std::vector<int>>>& edge_to_var,
 	bool add_colors = false) noexcept;
 
 
@@ -75,7 +76,9 @@ void writeGraphsToFile(
 	
 void writeCNFToFile(std::filesystem::path file_path, const CNF& cnf);
 
-std::vector<EdgeColoredUndirectedGraph> loadBulk(std::filesystem::path filename);
+std::vector<EdgeColoredUndirectedGraph> loadBulk(std::filesystem::path file_path);
+
+std::vector<EdgeColoredUndirectedGraph> loadBulkMC(std::filesystem::path file_path);
 
 };	// end of namespace
 
