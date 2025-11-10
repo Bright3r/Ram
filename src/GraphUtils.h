@@ -70,15 +70,19 @@ std::unique_ptr<CaDiCaL::Solver> getCNFSolver(
 
 
 // IO
-void writeGraphsToFile(
-	const std::filesystem::path& path,
-	const std::vector<EdgeColoredUndirectedGraph>& graphs);
-	
 void writeCNFToFile(std::filesystem::path file_path, const CNF& cnf);
 
-std::vector<EdgeColoredUndirectedGraph> loadBulk(std::filesystem::path file_path);
-
 std::vector<EdgeColoredUndirectedGraph> loadBulkMC(std::filesystem::path file_path);
+
+void writeGraphsToFileMC(
+	const std::filesystem::path& path,
+	const std::vector<EdgeColoredUndirectedGraph>& graphs);
+
+std::vector<EdgeColoredUndirectedGraph> loadBulkAdj(std::filesystem::path file_path);
+
+void writeGraphsToFileAdj(
+	const std::filesystem::path& path,
+	const std::vector<EdgeColoredUndirectedGraph>& graphs);
 
 };	// end of namespace
 

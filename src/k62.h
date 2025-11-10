@@ -15,12 +15,12 @@ using namespace Ram;
 
 inline EdgeColoredUndirectedGraph make_T1() noexcept
 {
-	return loadBulk("graphs/T1.adj")[0];
+	return loadBulkAdj("graphs/T1.adj")[0];
 }
 
 inline EdgeColoredUndirectedGraph make_T2() noexcept
 {
-	return loadBulk("graphs/T2.adj")[0];
+	return loadBulkAdj("graphs/T2.adj")[0];
 }
 
 inline std::vector<Vertex> getAttachingSet(const EdgeColoredUndirectedGraph& g) noexcept
@@ -89,13 +89,13 @@ inline void upsilon62_1() noexcept
 		);
 	}
 
-	writeGraphsToFile("graphs/62/upsilon1.adj", graphs);
+	writeGraphsToFileAdj("graphs/62/upsilon1.adj", graphs);
 }
 
 
 inline void upsilon62_2() noexcept
 {
-	auto upsilon1 = loadBulk("graphs/62/upsilon1.adj");
+	auto upsilon1 = loadBulkAdj("graphs/62/upsilon1.adj");
 	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
 
 	std::vector<std::unordered_set<std::string>> canons(17);
@@ -209,13 +209,13 @@ inline void upsilon62_2() noexcept
 	}
 
 	// Save graphs
-	writeGraphsToFile("graphs/62/upsilon2.adj", graphs);
+	writeGraphsToFileAdj("graphs/62/upsilon2.adj", graphs);
 }
 
 
 inline void upsilon62_3() noexcept
 {
-	auto upsilon2 = loadBulk("graphs/62/upsilon2.adj");
+	auto upsilon2 = loadBulkAdj("graphs/62/upsilon2.adj");
 	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
 
 	std::vector<EdgeColoredUndirectedGraph> graphs;
@@ -302,7 +302,7 @@ inline void upsilon62_3() noexcept
 	std::printf("%zu remaining graphs\n", graphs.size());
 
 	// Save Graphs
-	writeGraphsToFile("graphs/62/upsilon3.adj", graphs);
+	writeGraphsToFileAdj("graphs/62/upsilon3.adj", graphs);
 }
 
 
@@ -343,7 +343,7 @@ make_tperms() noexcept
 inline void upsilon62_4() noexcept
 {
 	auto t_perms = make_tperms();
-	auto upsilon3 = loadBulk("graphs/62/upsilon3.adj");
+	auto upsilon3 = loadBulkAdj("graphs/62/upsilon3.adj");
 	std::vector<EdgeColoredUndirectedGraph> pullbacks;
 	for (const auto& g : upsilon3)
 	{
@@ -449,14 +449,14 @@ inline void upsilon62_4() noexcept
 	std::printf("Found %zu partial colorings extended by one vertex\n", canons.size());
 
 	// Save to file
-	writeGraphsToFile("graphs/62/upsilon4.adj", graphs);
+	writeGraphsToFileAdj("graphs/62/upsilon4.adj", graphs);
 }
 
 
 inline void upsilon62_5() noexcept
 {
 	auto t_perms = make_tperms();
-	auto upsilon4 = loadBulk("graphs/62/upsilon4.adj");
+	auto upsilon4 = loadBulkAdj("graphs/62/upsilon4.adj");
 
 	// Cull colorings that are not embeddable in two colors
 	std::vector<EdgeColoredUndirectedGraph> embeddable;
@@ -625,6 +625,6 @@ inline void upsilon62_5() noexcept
 	std::printf("Found %zu graphs\n", canons.size());
 
 	// Save to File
-	writeGraphsToFile("graphs/62/upsilon5.adj", graphs);
+	writeGraphsToFileAdj("graphs/62/upsilon5.adj", graphs);
 }
 
