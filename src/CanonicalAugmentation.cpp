@@ -23,13 +23,13 @@ void processRepresentative(
 	rep_plus_one.addVertex();
 
 	// Go through all new edge colors for new vertex
-	for (Color c = 0; c < colorings.size(); ++c)
+	for (size_t c = 0; c < colorings.size(); ++c)
 	{
 		const auto& curr_coloring = colorings[c];
 
 		// Apply edge coloring
 		auto g = rep_plus_one;
-		auto new_vertex = rep_plus_one.num_vertices - 1;
+		size_t new_vertex = rep_plus_one.num_vertices - 1;
 		for (auto i = 0; i < new_vertex; ++i)
 		{
 			g.setEdge(new_vertex, i, curr_coloring[i]);
@@ -37,7 +37,7 @@ void processRepresentative(
 
 		// Check if triangle was added
 		bool has_tri = false;
-		auto tri_maker_idx = 0;
+		size_t tri_maker_idx = 0;
 		for (auto i = 0; i < new_vertex; ++i)
 		{
 			for (auto j = i+1; j < new_vertex; ++j)
@@ -60,7 +60,7 @@ void processRepresentative(
 		if (has_tri)
 		{
 			// Find next coloring that breaks current triangle
-			Color new_c = c;
+			size_t new_c = c;
 			Color tri_color = curr_coloring[tri_maker_idx];
 			while (new_c < colorings.size() && 
 				colorings[new_c][tri_maker_idx] == tri_color)
@@ -116,6 +116,8 @@ void augment(int k_start = 3, int k_stop = 16, Color max_color = 3) noexcept
 
 		std::vector<Ram::EdgeColoredUndirectedGraph> new_graphs;
 		std::unordered_set<std::string> new_canons;
+		new_graphs.reserve(2700000);
+		new_canons.reserve(2700000);
 		for (const auto& representative : graphs)
 		{
 			processRepresentative(
