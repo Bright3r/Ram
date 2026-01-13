@@ -346,25 +346,53 @@ make_tperms() noexcept
 	{
 		for (auto t_idx = 1; t_idx <= 2; ++t_idx)
 		{
-			EdgeColoredUndirectedGraph tperm = t1;
-			if (t_idx == 2) tperm = t2;
+			auto& t_copy = t1;
+			if (t_idx == 2) t_copy = t2;
 
+			EdgeColoredUndirectedGraph tperm(t_copy.num_vertices, 4);
 			for (auto i = 0; i < tperm.num_vertices; ++i)
 			{
 				for (auto j = i+1; j < tperm.num_vertices; ++j)
 				{
-					if (tperm.getEdge(i, j) == c)
-					{
-						tperm.setEdge(i, j, 4);
-					}
+					auto copy_ec = t_copy.getEdge(i, j);
+					if (copy_ec == c) copy_ec = 4;
+					tperm.setEdge(i, j, copy_ec);
 				}
 			}
 
-			t_perms[t_idx].emplace(c, std::move(tperm));
+			t_perms[t_idx].emplace(c, tperm);
 		}
 	}
 
 	return t_perms;
+}
+
+inline int countFullyColoredNeighborhoods(const EdgeColoredUndirectedGraph& g, Vertex v, Color max_color) noexcept
+{
+	auto cnt = 0;
+	for (auto c = 1; c <= max_color; ++c)
+	{
+		bool is_colored = true;
+		auto n = getNeighborhood(g, v, c);
+		for (auto i = 0; i < n.num_vertices; ++i)
+		{
+			for (auto j = i+1; j < n.num_vertices; ++j)
+			{
+				auto ec = n.getEdge(i, j);
+				if (ec == 0)
+				{
+					is_colored = false;
+					break;
+				}
+			}
+
+			if (!is_colored) break;
+		}
+
+		if (is_colored) ++cnt;
+	}
+
+	return cnt;
 }
 
 
@@ -452,6 +480,9 @@ inline void upsilon62_4(
 							}
 						}
 					}
+
+					// Check if fully colored in one neighborhood of first attaching vertex
+					if (countFullyColoredNeighborhoods(partial, v_extend, 3) < 1) continue;
 
 					// Check if triangle-free
 					if (!isTriangleFree(partial)) continue;
@@ -569,7 +600,7 @@ inline void upsilon62_5(
 						for (auto c_embed : embed(c_neighborhood, tc))
 						{
 							// Pull back onto N_c(x)
-							auto partial = prev_partial;
+							auto partial_c = prev_partial;
 							for (auto i = 0; i < c_neighbors.size(); ++i)
 							{
 								for (auto j = i+1; j < c_neighbors.size(); ++j)
@@ -577,17 +608,17 @@ inline void upsilon62_5(
 									auto u = c_neighbors[i];
 									auto v = c_neighbors[j];
 
-									if (!partial.hasEdge(u, v))
+									if (!partial_c.hasEdge(u, v))
 									{
 										auto ec = tc.getEdge(c_embed[i], c_embed[j]);
-										partial.setEdge(u, v, ec);
+										partial_c.setEdge(u, v, ec);
 									}
 								}
 							}
 
 							// Now overlap with pull back of N_d(x) over ts
 							std::vector<Vertex> d_neighbors;
-							auto d_neighborhood = getNeighborhood(partial, d_neighbors, x, di);
+							auto d_neighborhood = getNeighborhood(partial_c, d_neighbors, x, di);
 							for (auto kd = 1; kd <= 2; ++kd)
 							{
 								auto& td = t_perms[kd].at(di);
@@ -595,6 +626,7 @@ inline void upsilon62_5(
 
 								for (auto d_embed : embed(d_neighborhood, td))
 								{
+									auto partial_d = partial_c;
 									for (auto i = 0; i < d_neighbors.size(); ++i)
 									{
 										for (auto j = i+1; j < d_neighbors.size(); ++j)
@@ -602,25 +634,26 @@ inline void upsilon62_5(
 											auto u = d_neighbors[i];
 											auto v = d_neighbors[j];
 
-											if (!partial.hasEdge(u, v))
+											if (!partial_d.hasEdge(u, v))
 											{
 												auto ec = td.getEdge(d_embed[i], d_embed[j]);
-												partial.setEdge(u, v, ec);
+												partial_d.setEdge(u, v, ec);
 											}
 										}
 									}
+
+
+									// Check if partial colorings is triangle-free
+									if (!isTriangleFree(partial_d)) continue;
+
+									// Canonize
+									auto canon = canonize(partial_d);
+									if (!new_canons.contains(canon))
+									{
+										new_partials.emplace_back(std::move(partial_d));
+										new_canons.insert(canon);
+									}
 								}
-							}
-
-							// Check if partial colorings is triangle-free
-							if (!isTriangleFree(partial)) continue;
-
-							// Canonize
-							auto canon = canonize(partial);
-							if (!new_canons.contains(canon))
-							{
-								new_partials.emplace_back(std::move(partial));
-								new_canons.insert(canon);
 							}
 						}
 					}

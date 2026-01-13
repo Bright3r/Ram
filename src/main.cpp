@@ -123,6 +123,86 @@ void compareNumVertices(
 }
 
 
+void trySolve() noexcept
+{
+	// auto up5 = loadBulkMC("graphs/stan/prop5.4_at5.mc");
+	// std::printf("%d graphs loaded\n", up5.size());
+
+	// std::printf("SATISFIABLE=%d\n", CaDiCaL::SATISFIABLE);
+	// std::printf("UNSATISFIABLE=%d\n", CaDiCaL::UNSATISFIABLE);
+	// for (auto& g : up5)
+	// {
+	// 	EdgeColoredUndirectedGraph base(62, 4);
+	// 	for (auto i = 0; i < g.num_vertices; ++i)
+	// 	{
+	// 		for (auto j = i+1; j < g.num_vertices; ++j)
+	// 		{
+	// 			base.setEdge(i, j, g.getEdge(i, j));
+	// 		}
+	// 	}
+	//
+	// 	auto num_verts = 4;
+	// 	auto cperms = generateAllColorings(num_verts, 4);
+	// 	std::printf("%d cperms\n", cperms.size());
+	// 	for (auto& cperm : cperms)
+	// 	{
+	// 		auto fin = base;
+	// 		for (auto v = 0; v < num_verts; ++v)
+	// 		{
+	// 			fin.setEdge(v, 61, cperm[v]);
+	// 		}
+	//
+	// 		std::vector<std::vector<std::vector<int>>> edge_to_var;
+	// 		auto solver = getCNFSolver(fin, edge_to_var, true);
+	// 		auto res = solver->solve();
+	//
+	// 		std::printf("Result: %d\n", res);
+	// 	}
+	// }
+}
+
+
+void countGoodNeighborhoods(
+	const std::vector<EdgeColoredUndirectedGraph>& gs,
+	int num_colors
+) noexcept
+{
+	std::map<int, int> map;
+	for (auto& g : gs)
+	{
+		auto aset = getAttachingSet(g);
+
+		auto good = 0;
+		for (auto c = 1; c <= num_colors; ++c)
+		{
+			auto n = getNeighborhood(g, aset[0], c);
+			bool is_good = true;
+			for (auto i = 0; i < n.num_vertices; ++i)
+			{
+				for (auto j = i+1; j < n.num_vertices; ++j)
+				{
+					auto ec = n.getEdge(i, j);
+					if (ec == 0) 
+					{
+						is_good = false;
+					}
+				}
+			}
+
+			if (is_good) ++good;
+		}
+
+		map[good]++;
+		// std::printf("Good: %d\n", good);
+	}
+
+	for (auto [good_neighborhoods, cnt] : map)
+	{
+		std::printf("%d good neighborhoods: %d graphs\n", good_neighborhoods, cnt);
+	}
+}
+
+
 int main(int argc, char** argv)
 {
 	// upsilon61_1();
@@ -134,7 +214,7 @@ int main(int argc, char** argv)
 	// upsilon62_1();
 	// upsilon62_2(loadBulkAdj("graphs/62/upsilon1.adj"));
 	// upsilon62_3(loadBulkAdj("graphs/62/upsilon2.adj"));
-	upsilon62_4(loadBulkAdj("graphs/62/upsilon3.adj"));
+	// upsilon62_4(loadBulkAdj("graphs/62/upsilon3.adj"));
 	// upsilon62_5(loadBulkAdj("graphs/62/upsilon4.adj"));
 
 	// testEmbed();
@@ -143,14 +223,32 @@ int main(int argc, char** argv)
 	// testPullback();
 	
 
-	// auto my_up = loadBulkAdj("graphs/62/upsilon3.adj");
-	// std::printf("My Graphs: %d\n", my_up.size());
+	auto my_up = loadBulkAdj("graphs/62/upsilon5.adj");
+	std::printf("My Graphs: %d\n", my_up.size());
+
+	auto stan_up = loadBulkAdj("graphs/stan/upsilon5.adj");
+	std::printf("Stan Graphs: %d\n", stan_up.size());
+
+	bool b = isIsomorphicEqual(my_up, stan_up);
+	std::printf("Result: %b\n", b);
+	
+	countGoodNeighborhoods(my_up, 4);
+
+
+
+
+	// auto t_perms = make_tperms();
+	// for (auto i = 1; i <= 2; ++i)
+	// {
+	// 	for (auto c = 1; c <= 3; ++c)
+	// 	{
+	// 		auto& g = t_perms[i].at(c);
+	// 		std::printf("%s\n", g.to_string().c_str());
+	// 	}
+	// }
 	//
-	// auto jack_up = loadBulkAdj("graphs/jacks/upsilon3.adj");
-	// std::printf("Jack Graphs: %d\n", jack_up.size());
-	//
-	// bool b = isIsomorphicEqual(my_up, jack_up);
-	// std::printf("Result: %b\n", b);
+	// auto t = make_T1();
+	// std::printf("%s\n", t.to_string().c_str());
 
 	return 0;
 }
