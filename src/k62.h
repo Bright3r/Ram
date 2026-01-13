@@ -93,9 +93,8 @@ inline void upsilon62_1() noexcept
 }
 
 
-inline void upsilon62_2() noexcept
+inline void upsilon62_2(const std::vector<EdgeColoredUndirectedGraph>& upsilon1) noexcept
 {
-	auto upsilon1 = loadBulkAdj("graphs/62/upsilon1.adj");
 	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
 
 	std::vector<std::unordered_set<std::string>> canons(17);
@@ -184,13 +183,43 @@ inline void upsilon62_2() noexcept
 					overlap.setEdge(marked[i], u, 4);
 					overlap.setEdge(marked[i], v, 4);
 				}
+				
 
+				// Color remaining edges to u and v
+				auto overlap1 = overlap;
+				for (auto i = 0; i < 16; ++i)
+				{
+					overlap1.setEdge(i, u, 4);
+				}
+				for (auto i = 16; i < overlap.num_vertices-2; ++i)
+				{
+					overlap1.setEdge(i, v, 4);
+				}
 				// Canonize graph
-				auto canon = canonize(overlap);
+				auto canon = canonize(overlap1);
 				if (!canons[marked.size()].contains(canon))
 				{
 					canons[marked.size()].insert(canon);
-					graphs.emplace_back(std::move(overlap));
+					graphs.emplace_back(std::move(overlap1));
+				}
+
+
+				// Color remaining edges to u and v
+				auto overlap2 = overlap;
+				for (auto i = 0; i < 16; ++i)
+				{
+					overlap2.setEdge(i, v, 4);
+				}
+				for (auto i = 16; i < overlap.num_vertices-2; ++i)
+				{
+					overlap2.setEdge(i, u, 4);
+				}
+				// Canonize graph
+				canon = canonize(overlap2);
+				if (!canons[marked.size()].contains(canon))
+				{
+					canons[marked.size()].insert(canon);
+					graphs.emplace_back(std::move(overlap2));
 				}
 			}
 		}
@@ -213,9 +242,8 @@ inline void upsilon62_2() noexcept
 }
 
 
-inline void upsilon62_3() noexcept
+inline void upsilon62_3(const std::vector<EdgeColoredUndirectedGraph>& upsilon2) noexcept
 {
-	auto upsilon2 = loadBulkAdj("graphs/62/upsilon2.adj");
 	std::vector<EdgeColoredUndirectedGraph> ts = { make_T1(), make_T2() };
 
 	std::vector<EdgeColoredUndirectedGraph> graphs;
@@ -340,15 +368,17 @@ make_tperms() noexcept
 }
 
 
-inline void upsilon62_4() noexcept
+inline void upsilon62_4(
+	const std::vector<EdgeColoredUndirectedGraph>& upsilon3,
+	std::filesystem::path write_path = "graphs/62/upsilon4.adj") noexcept
 {
 	auto t_perms = make_tperms();
-	auto upsilon3 = loadBulkAdj("graphs/62/upsilon3.adj");
 	std::vector<EdgeColoredUndirectedGraph> pullbacks;
 	for (const auto& g : upsilon3)
 	{
 		// Build attaching set
 		auto attaching_set = getAttachingSet(g);
+		if (attaching_set.size() < 2 || attaching_set.size() > 15) continue;
 
 		bool is_good = true;
 		for (auto x : attaching_set)
@@ -449,14 +479,15 @@ inline void upsilon62_4() noexcept
 	std::printf("Found %zu partial colorings extended by one vertex\n", canons.size());
 
 	// Save to file
-	writeGraphsToFileAdj("graphs/62/upsilon4.adj", graphs);
+	writeGraphsToFileAdj(write_path, graphs);
 }
 
 
-inline void upsilon62_5() noexcept
+inline void upsilon62_5(
+	const std::vector<EdgeColoredUndirectedGraph>& upsilon4,
+	std::filesystem::path write_path = "graphs/62/upsilon5.adj") noexcept
 {
 	auto t_perms = make_tperms();
-	auto upsilon4 = loadBulkAdj("graphs/62/upsilon4.adj");
 
 	// Cull colorings that are not embeddable in two colors
 	std::vector<EdgeColoredUndirectedGraph> embeddable;
@@ -625,6 +656,6 @@ inline void upsilon62_5() noexcept
 	std::printf("Found %zu graphs\n", canons.size());
 
 	// Save to File
-	writeGraphsToFileAdj("graphs/62/upsilon5.adj", graphs);
+	writeGraphsToFileAdj(write_path, graphs);
 }
 
