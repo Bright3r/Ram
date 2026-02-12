@@ -60,7 +60,7 @@ struct EdgeColoredUndirectedGraph
 	// Type to be used when interacting with nauty
 	using NautyGraph = std::vector<setword>;
 
-	std::vector<std::vector<bool>> graph;
+	std::vector<std::vector<uint8_t>> graph;
 	size_t num_vertices;
 	size_t num_layers;
 	Color max_color;

@@ -47,6 +47,11 @@ bool canEmbed(
 	const EdgeColoredUndirectedGraph& subgraph,
 	const EdgeColoredUndirectedGraph& graph) noexcept;
 
+bool canEmbed(
+	const EdgeColoredUndirectedGraph& subgraph,
+	const std::vector<EdgeColoredUndirectedGraph>& graphs
+) noexcept;
+
 EdgeColoredUndirectedGraph getNeighborhood(
 	const EdgeColoredUndirectedGraph& g,
 	Vertex v,

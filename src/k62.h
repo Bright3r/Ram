@@ -270,17 +270,7 @@ inline void upsilon62_3(const std::vector<EdgeColoredUndirectedGraph>& upsilon2)
 				// Check if neighborhood is embeddable into a good k16
 				for (const auto& t : ts)
 				{
-					bool has_embedding = false;
-					for (const auto& weak_n : getColorPermutations(neighborhood))
-					{
-						if (canEmbed(weak_n, t))
-						{
-							has_embedding = true;
-							break;
-						}
-					}
-
-					if (has_embedding)
+					if (canEmbed(neighborhood, t))
 					{
 						++num_embeddable_neighborhoods;
 						break;

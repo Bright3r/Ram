@@ -11,9 +11,9 @@ EdgeColoredUndirectedGraph::EdgeColoredUndirectedGraph(size_t num_vertices, Colo
 {
 	num_layers = numLayersForMaxColor(max_color);
 
-	graph = std::vector<std::vector<bool>>(
+	graph = std::vector<std::vector<uint8_t>>(
 		numEncodedVertices(), 
-		std::vector<bool>(numEncodedVertices(), false)
+		std::vector<uint8_t>(numEncodedVertices(), false)
 	);
 
 	// Create a clique between vertical threads of color encoding vertices
@@ -50,7 +50,7 @@ void EdgeColoredUndirectedGraph::addVertex() noexcept
 	graph.insert(
 		graph.end(),
 		new_size - old_size,
-		std::vector<bool>(new_size, false)
+		std::vector<uint8_t>(new_size, false)
 	);
 
 	createEncodingThreads(num_vertices-1);

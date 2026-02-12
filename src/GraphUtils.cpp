@@ -349,6 +349,22 @@ bool canEmbed(
 	return VF2_dfs(0);
 };
 
+bool canEmbed(
+	const EdgeColoredUndirectedGraph& subgraph,
+	const std::vector<EdgeColoredUndirectedGraph>& graphs
+) noexcept
+{
+	for (const auto& g : graphs)
+	{
+		if (canEmbed(subgraph, g))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 
 EdgeColoredUndirectedGraph getNeighborhood(
 	const EdgeColoredUndirectedGraph& g,
